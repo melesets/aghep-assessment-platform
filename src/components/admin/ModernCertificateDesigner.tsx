@@ -1,866 +1,1574 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { 
-  Palette, 
+  Upload,
   Download, 
   Eye, 
-  Save, 
-  RotateCcw, 
-  Upload,
-  Layers,
+  Save,
+  FileText,
+  Edit3,
+  Plus,
+  Trash2,
+  MousePointer,
   Type,
-  Image as ImageIcon,
-  Zap,
-  Sparkles,
-  Crown,
+  Move,
+  Copy,
+  RotateCcw,
+  Layers,
+  X,
+  Settings,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  Database,
+  Users,
+  BookOpen,
   Award,
-  Star,
-  Gem
+  RefreshCw
 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../hooks/useAuth';
+
+interface EditableField {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  value: string;
+  fontSize: number;
+  color: string;
+  fontFamily: string;
+  fontWeight: string;
+  textAlign: string;
+  placeholder: string;
+  fieldType: 'text' | 'date' | 'number' | 'email' | 'database';
+  required: boolean;
+  zIndex: number;
+  databaseField?: string; // Maps to database fields like 'student_name', 'exam_title', etc.
+}
 
 interface CertificateTemplate {
   id: string;
   name: string;
-  title: string;
-  subtitle: string;
-  organizationName: string;
-  signatoryName: string;
-  signatoryTitle: string;
-  design: {
-    backgroundColor: string;
-    primaryColor: string;
-    accentColor: string;
-    textColor: string;
-    borderColor: string;
-    pattern: 'none' | 'geometric' | 'waves' | 'dots' | 'lines' | 'gradient' | 'watermark';
-    layout: 'classic' | 'modern' | 'elegant' | 'corporate' | 'creative' | 'minimal';
-    borderStyle: 'none' | 'simple' | 'decorative' | 'double' | 'shadow';
-    fontFamily: 'serif' | 'sans-serif' | 'script' | 'modern';
-  };
-  elements: {
-    showLogo: boolean;
-    showBorder: boolean;
-    showPattern: boolean;
-    showWatermark: boolean;
-    showQRCode: boolean;
-    showSignature: boolean;
+  file?: File;
+  fileUrl?: string;
+  templateType: 'image' | 'pdf' | 'powerpoint';
+  fields: EditableField[];
+  backgroundStyle: {
+    backgroundImage?: string;
+    backgroundColor?: string;
+    width: number;
+    height: number;
   };
 }
 
-const modernTemplates: CertificateTemplate[] = [
-  {
-    id: 'modern-blue',
-    name: '🌊 Modern Ocean',
-    title: 'CERTIFICATE OF EXCELLENCE',
-    subtitle: 'This certifies that',
-    organizationName: 'AGHEP Healthcare Institute',
-    signatoryName: 'Dr. Sarah Johnson',
-    signatoryTitle: 'Director of Education',
-    design: {
-      backgroundColor: '#f8fafc',
-      primaryColor: '#0ea5e9',
-      accentColor: '#0284c7',
-      textColor: '#1e293b',
-      borderColor: '#0ea5e9',
-      pattern: 'waves',
-      layout: 'modern',
-      borderStyle: 'decorative',
-      fontFamily: 'sans-serif'
-    },
-    elements: {
-      showLogo: true,
-      showBorder: true,
-      showPattern: true,
-      showWatermark: false,
-      showQRCode: true,
-      showSignature: true
-    }
-  },
-  {
-    id: 'elegant-gold',
-    name: '👑 Royal Gold',
-    title: 'CERTIFICATE OF ACHIEVEMENT',
-    subtitle: 'Proudly presented to',
-    organizationName: 'AGHEP Healthcare Institute',
-    signatoryName: 'Dr. Michael Chen',
-    signatoryTitle: 'Chief Medical Officer',
-    design: {
-      backgroundColor: '#fffbeb',
-      primaryColor: '#d97706',
-      accentColor: '#92400e',
-      textColor: '#451a03',
-      borderColor: '#d97706',
-      pattern: 'geometric',
-      layout: 'elegant',
-      borderStyle: 'double',
-      fontFamily: 'serif'
-    },
-    elements: {
-      showLogo: true,
-      showBorder: true,
-      showPattern: true,
-      showWatermark: true,
-      showQRCode: false,
-      showSignature: true
-    }
-  },
-  {
-    id: 'corporate-green',
-    name: '🏢 Corporate Professional',
-    title: 'PROFESSIONAL CERTIFICATION',
-    subtitle: 'This document certifies that',
-    organizationName: 'AGHEP Healthcare Institute',
-    signatoryName: 'Dr. Emily Rodriguez',
-    signatoryTitle: 'Director of Professional Development',
-    design: {
-      backgroundColor: '#ffffff',
-      primaryColor: '#059669',
-      accentColor: '#047857',
-      textColor: '#064e3b',
-      borderColor: '#059669',
-      pattern: 'lines',
-      layout: 'corporate',
-      borderStyle: 'simple',
-      fontFamily: 'sans-serif'
-    },
-    elements: {
-      showLogo: true,
-      showBorder: true,
-      showPattern: false,
-      showWatermark: false,
-      showQRCode: true,
-      showSignature: true
-    }
-  },
-  {
-    id: 'creative-purple',
-    name: '✨ Creative Spark',
-    title: 'CERTIFICATE OF MASTERY',
-    subtitle: 'Awarded to',
-    organizationName: 'AGHEP Healthcare Institute',
-    signatoryName: 'Dr. James Wilson',
-    signatoryTitle: 'Head of Innovation',
-    design: {
-      backgroundColor: '#faf5ff',
-      primaryColor: '#7c3aed',
-      accentColor: '#5b21b6',
-      textColor: '#3c1361',
-      borderColor: '#7c3aed',
-      pattern: 'dots',
-      layout: 'creative',
-      borderStyle: 'shadow',
-      fontFamily: 'modern'
-    },
-    elements: {
-      showLogo: true,
-      showBorder: true,
-      showPattern: true,
-      showWatermark: false,
-      showQRCode: true,
-      showSignature: true
-    }
-  },
-  {
-    id: 'minimal-gray',
-    name: '⚡ Minimal Clean',
-    title: 'CERTIFICATE OF COMPLETION',
-    subtitle: 'This is to certify that',
-    organizationName: 'AGHEP Healthcare Institute',
-    signatoryName: 'Dr. Lisa Thompson',
-    signatoryTitle: 'Academic Director',
-    design: {
-      backgroundColor: '#ffffff',
-      primaryColor: '#374151',
-      accentColor: '#1f2937',
-      textColor: '#111827',
-      borderColor: '#6b7280',
-      pattern: 'none',
-      layout: 'minimal',
-      borderStyle: 'simple',
-      fontFamily: 'sans-serif'
-    },
-    elements: {
-      showLogo: false,
-      showBorder: true,
-      showPattern: false,
-      showWatermark: false,
-      showQRCode: false,
-      showSignature: true
-    }
-  },
-  {
-    id: 'gradient-rainbow',
-    name: '🌈 Gradient Rainbow',
-    title: 'CERTIFICATE OF EXCELLENCE',
-    subtitle: 'Celebrating the achievement of',
-    organizationName: 'AGHEP Healthcare Institute',
-    signatoryName: 'Dr. Robert Kim',
-    signatoryTitle: 'Director of Excellence',
-    design: {
-      backgroundColor: '#ffffff',
-      primaryColor: '#ec4899',
-      accentColor: '#be185d',
-      textColor: '#831843',
-      borderColor: '#ec4899',
-      pattern: 'gradient',
-      layout: 'creative',
-      borderStyle: 'decorative',
-      fontFamily: 'modern'
-    },
-    elements: {
-      showLogo: true,
-      showBorder: true,
-      showPattern: true,
-      showWatermark: false,
-      showQRCode: true,
-      showSignature: true
-    }
-  }
+interface ExamData {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  passingScore: number;
+  duration: number;
+}
+
+interface StudentData {
+  id: string;
+  name: string;
+  email: string;
+  department?: string;
+  employeeId?: string;
+}
+
+interface CertificateData {
+  [key: string]: string;
+}
+
+const fieldTypeOptions = [
+  { value: 'text', label: 'Text' },
+  { value: 'date', label: 'Date' },
+  { value: 'number', label: 'Number' },
+  { value: 'email', label: 'Email' },
+  { value: 'database', label: 'Database Field' }
+];
+
+const databaseFieldOptions = [
+  { value: 'student_name', label: 'Student Name' },
+  { value: 'student_email', label: 'Student Email' },
+  { value: 'student_department', label: 'Student Department' },
+  { value: 'student_employee_id', label: 'Employee ID' },
+  { value: 'exam_title', label: 'Exam Title' },
+  { value: 'exam_category', label: 'Exam Category' },
+  { value: 'exam_score', label: 'Exam Score' },
+  { value: 'exam_percentage', label: 'Score Percentage' },
+  { value: 'completion_date', label: 'Completion Date' },
+  { value: 'certificate_number', label: 'Certificate Number' },
+  { value: 'passing_score', label: 'Passing Score' }
+];
+
+const fontFamilyOptions = [
+  { value: 'Arial, sans-serif', label: 'Arial' },
+  { value: 'Times New Roman, serif', label: 'Times New Roman' },
+  { value: 'Helvetica, sans-serif', label: 'Helvetica' },
+  { value: 'Georgia, serif', label: 'Georgia' },
+  { value: 'Verdana, sans-serif', label: 'Verdana' }
 ];
 
 export const ModernCertificateDesigner: React.FC = () => {
-  const [selectedTemplate, setSelectedTemplate] = useState<CertificateTemplate>(modernTemplates[0]);
-  const [customTemplate, setCustomTemplate] = useState<CertificateTemplate>(modernTemplates[0]);
-  const [activeTab, setActiveTab] = useState<'templates' | 'design' | 'content' | 'elements'>('templates');
-  const [previewMode, setPreviewMode] = useState(false);
-  const logoInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+  const [currentTemplate, setCurrentTemplate] = useState<CertificateTemplate>({
+    id: 'default',
+    name: 'No Template',
+    templateType: 'image',
+    fields: [],
+    backgroundStyle: {
+      backgroundColor: '#ffffff',
+      width: 800,
+      height: 600
+    }
+  });
+  const [certificateData, setCertificateData] = useState<CertificateData>({});
+  const [activeSection, setActiveSection] = useState<'import' | 'edit' | 'preview' | 'database'>('database');
+  const [isLoading, setIsLoading] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [selectedField, setSelectedField] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  
+  // Database-related state
+  const [exams, setExams] = useState<ExamData[]>([]);
+  const [students, setStudents] = useState<StudentData[]>([]);
+  const [selectedExam, setSelectedExam] = useState<string>('');
+  const [selectedStudent, setSelectedStudent] = useState<string>('');
+  const [examAttempts, setExamAttempts] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(false);
+  
+  const canvasRef = useRef<HTMLDivElement>(null);
 
-  const handleTemplateSelect = (template: CertificateTemplate) => {
-    setSelectedTemplate(template);
-    setCustomTemplate({ ...template });
-  };
+  // Load data from database
+  useEffect(() => {
+    loadDatabaseData();
+  }, []);
 
-  const updateDesign = (field: keyof CertificateTemplate['design'], value: any) => {
-    setCustomTemplate(prev => ({
-      ...prev,
-      design: {
-        ...prev.design,
-        [field]: value
+  const loadDatabaseData = async () => {
+    setLoadingData(true);
+    try {
+      // Load exams
+      const { data: examsData, error: examsError } = await supabase
+        .from('exams')
+        .select(`
+          id,
+          title,
+          description,
+          passing_score,
+          duration,
+          categories(name)
+        `)
+        .eq('is_published', true)
+        .eq('is_active', true);
+
+      if (examsError) {
+        console.error('Error loading exams:', examsError);
+      } else {
+        const formattedExams = examsData?.map(exam => ({
+          id: exam.id,
+          title: exam.title,
+          description: exam.description || '',
+          category: exam.categories?.name || 'Uncategorized',
+          passingScore: exam.passing_score,
+          duration: exam.duration
+        })) || [];
+        setExams(formattedExams);
       }
-    }));
-  };
 
-  const updateContent = (field: keyof Omit<CertificateTemplate, 'design' | 'elements'>, value: string) => {
-    setCustomTemplate(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
+      // Load students (users with completed exam attempts)
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('profiles')
+        .select('id, name, email, department, employee_id')
+        .eq('role', 'student');
 
-  const updateElements = (field: keyof CertificateTemplate['elements'], value: boolean) => {
-    setCustomTemplate(prev => ({
-      ...prev,
-      elements: {
-        ...prev.elements,
-        [field]: value
+      if (studentsError) {
+        console.error('Error loading students:', studentsError);
+      } else {
+        const formattedStudents = studentsData?.map(student => ({
+          id: student.id,
+          name: student.name,
+          email: student.email,
+          department: student.department,
+          employeeId: student.employee_id
+        })) || [];
+        setStudents(formattedStudents);
       }
-    }));
+
+    } catch (error) {
+      console.error('Error loading database data:', error);
+    } finally {
+      setLoadingData(false);
+    }
   };
 
-  const saveTemplate = () => {
-    localStorage.setItem('certificate-template', JSON.stringify(customTemplate));
-    alert('Certificate template saved successfully!');
+  const loadExamAttempts = async (examId: string, studentId: string) => {
+    if (!examId || !studentId) return;
+
+    try {
+      const { data: attemptsData, error } = await supabase
+        .from('exam_attempts')
+        .select(`
+          id,
+          score,
+          percentage,
+          completed_at,
+          status,
+          exams(title, passing_score),
+          profiles(name, email, department, employee_id)
+        `)
+        .eq('exam_id', examId)
+        .eq('user_id', studentId)
+        .eq('status', 'completed')
+        .order('completed_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading exam attempts:', error);
+      } else {
+        setExamAttempts(attemptsData || []);
+        
+        // Auto-populate certificate data if attempt exists
+        if (attemptsData && attemptsData.length > 0) {
+          const attempt = attemptsData[0]; // Most recent attempt
+          const student = students.find(s => s.id === studentId);
+          const exam = exams.find(e => e.id === examId);
+          
+          setCertificateData({
+            student_name: student?.name || '',
+            student_email: student?.email || '',
+            student_department: student?.department || '',
+            student_employee_id: student?.employeeId || '',
+            exam_title: exam?.title || '',
+            exam_category: exam?.category || '',
+            exam_score: attempt.score?.toString() || '',
+            exam_percentage: attempt.percentage?.toString() || '',
+            completion_date: new Date(attempt.completed_at).toLocaleDateString(),
+            certificate_number: `CERT-${Date.now()}`,
+            passing_score: exam?.passingScore?.toString() || ''
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading exam attempts:', error);
+    }
   };
 
-  const resetToDefault = () => {
-    setCustomTemplate({ ...selectedTemplate });
-  };
+  // Watch for exam/student selection changes
+  useEffect(() => {
+    if (selectedExam && selectedStudent) {
+      loadExamAttempts(selectedExam, selectedStudent);
+    }
+  }, [selectedExam, selectedStudent]);
 
-  const generatePreview = async () => {
-    const mockCertificate = {
-      id: 'preview',
-      examTitle: 'Healthcare Professional Certification',
-      studentName: 'John Doe',
-      score: 95,
-      completedAt: new Date().toISOString(),
-      certificateNumber: 'CERT-2024-001',
-      studentEmail: 'john.doe@example.com',
-      studentDepartment: 'Emergency Medicine',
-      studentPosition: 'Registered Nurse',
-      studentOrganization: 'City General Hospital'
+  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const fileUrl = URL.createObjectURL(file);
+      let templateType: 'image' | 'pdf' | 'powerpoint' = 'image';
+      
+      if (file.type.includes('pdf')) {
+        templateType = 'pdf';
+      } else if (file.type.includes('presentation') || file.name.endsWith('.ppt') || file.name.endsWith('.pptx')) {
+        templateType = 'powerpoint';
+      }
+
+      // For images, we can directly use them as background
+      if (file.type.startsWith('image/')) {
+        const img = new Image();
+        img.onload = () => {
+          setCurrentTemplate({
+            id: `template_${Date.now()}`,
+            name: file.name.split('.')[0],
+            file: file,
+            fileUrl: fileUrl,
+            templateType: 'image',
+            fields: [],
+            backgroundStyle: {
+              backgroundImage: `url(${fileUrl})`,
+              width: Math.min(img.width, 800),
+              height: Math.min(img.height, 600)
+            }
+          });
+          setActiveSection('edit');
+        };
+        img.src = fileUrl;
+      } else if (templateType === 'pdf') {
+        // For PDF, we'll convert first page to image
+        try {
+          const pdfjsLib = await import('pdfjs-dist');
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+          
+          const pdf = await pdfjsLib.getDocument(fileUrl).promise;
+          const page = await pdf.getPage(1);
+          const viewport = page.getViewport({ scale: 1.5 });
+          
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d')!;
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          
+          await page.render({ canvasContext: context, viewport }).promise;
+          const imageUrl = canvas.toDataURL();
+          
+          setCurrentTemplate({
+            id: `template_${Date.now()}`,
+            name: file.name.split('.')[0],
+            file: file,
+            fileUrl: imageUrl,
+            templateType: 'pdf',
+            fields: [],
+            backgroundStyle: {
+              backgroundImage: `url(${imageUrl})`,
+              width: Math.min(viewport.width, 800),
+              height: Math.min(viewport.height, 600)
+            }
+          });
+          setActiveSection('edit');
+        } catch (error) {
+          console.error('Error processing PDF:', error);
+          alert('Error processing PDF. Please try an image file instead.');
+        }
+      } else {
+        alert('PowerPoint files need to be converted to images first. Please export your PowerPoint slide as PNG/JPG and upload that instead.');
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Error uploading file. Please try again.');
+    }
+  }, []);
+
+  const addField = useCallback((x: number, y: number) => {
+    const newField: EditableField = {
+      id: `field_${Date.now()}`,
+      name: `Field ${currentTemplate.fields.length + 1}`,
+      x: x,
+      y: y,
+      width: 200,
+      height: 30,
+      value: 'Click to edit',
+      fontSize: 16,
+      color: '#000000',
+      fontFamily: 'Arial, sans-serif',
+      fontWeight: 'normal',
+      textAlign: 'left',
+      placeholder: 'Enter text here',
+      fieldType: 'text',
+      required: false,
+      zIndex: currentTemplate.fields.length + 1,
+      databaseField: undefined
     };
+    
+    setCurrentTemplate(prev => ({
+      ...prev,
+      fields: [...prev.fields, newField]
+    }));
+    setSelectedField(newField.id);
+  }, [currentTemplate.fields.length]);
 
-    await generateModernCertificatePDF(mockCertificate, customTemplate);
-  };
+  const addDatabaseField = useCallback((databaseField: string) => {
+    const fieldLabel = databaseFieldOptions.find(opt => opt.value === databaseField)?.label || databaseField;
+    const centerX = currentTemplate.backgroundStyle.width / 2 - 100;
+    const centerY = currentTemplate.backgroundStyle.height / 2 - 15 + (currentTemplate.fields.length * 40);
+    
+    const newField: EditableField = {
+      id: `field_${Date.now()}`,
+      name: fieldLabel,
+      x: centerX,
+      y: centerY,
+      width: 200,
+      height: 30,
+      value: certificateData[databaseField] || `{${databaseField}}`,
+      fontSize: 16,
+      color: '#000000',
+      fontFamily: 'Arial, sans-serif',
+      fontWeight: 'normal',
+      textAlign: 'center',
+      placeholder: fieldLabel,
+      fieldType: 'database',
+      required: false,
+      zIndex: currentTemplate.fields.length + 1,
+      databaseField: databaseField
+    };
+    
+    setCurrentTemplate(prev => ({
+      ...prev,
+      fields: [...prev.fields, newField]
+    }));
+    setSelectedField(newField.id);
+  }, [currentTemplate.fields.length, currentTemplate.backgroundStyle, certificateData]);
 
-  const getLayoutIcon = (layout: string) => {
-    switch (layout) {
-      case 'modern': return <Zap className="h-4 w-4" />;
-      case 'elegant': return <Crown className="h-4 w-4" />;
-      case 'corporate': return <Award className="h-4 w-4" />;
-      case 'creative': return <Sparkles className="h-4 w-4" />;
-      case 'minimal': return <Layers className="h-4 w-4" />;
-      default: return <Star className="h-4 w-4" />;
+  const addFieldFromButton = useCallback(() => {
+    // Add field at center of template
+    const centerX = currentTemplate.backgroundStyle.width / 2 - 100;
+    const centerY = currentTemplate.backgroundStyle.height / 2 - 15;
+    addField(centerX, centerY);
+  }, [addField, currentTemplate.backgroundStyle]);
+
+  const updateField = useCallback((id: string, updates: Partial<EditableField>) => {
+    setCurrentTemplate(prev => ({
+      ...prev,
+      fields: prev.fields.map(field => 
+        field.id === id ? { ...field, ...updates } : field
+      )
+    }));
+  }, []);
+
+  const removeField = useCallback((id: string) => {
+    setCurrentTemplate(prev => ({
+      ...prev,
+      fields: prev.fields.filter(field => field.id !== id)
+    }));
+    if (selectedField === id) {
+      setSelectedField(null);
     }
-  };
+  }, [selectedField]);
 
-  const getPatternIcon = (pattern: string) => {
-    switch (pattern) {
-      case 'geometric': return <Gem className="h-4 w-4" />;
-      case 'waves': return <span className="text-xs">🌊</span>;
-      case 'dots': return <span className="text-xs">⚪</span>;
-      case 'lines': return <span className="text-xs">📏</span>;
-      case 'gradient': return <span className="text-xs">🌈</span>;
-      case 'watermark': return <span className="text-xs">💧</span>;
-      default: return <span className="text-xs">⬜</span>;
+  const duplicateField = useCallback((id: string) => {
+    const fieldToDuplicate = currentTemplate.fields.find(f => f.id === id);
+    if (fieldToDuplicate) {
+      const newField: EditableField = {
+        ...fieldToDuplicate,
+        id: `field_${Date.now()}`,
+        name: `${fieldToDuplicate.name} (Copy)`,
+        x: fieldToDuplicate.x + 20,
+        y: fieldToDuplicate.y + 20,
+        zIndex: currentTemplate.fields.length + 1
+      };
+      setCurrentTemplate(prev => ({
+        ...prev,
+        fields: [...prev.fields, newField]
+      }));
+      setSelectedField(newField.id);
     }
-  };
+  }, [currentTemplate.fields]);
+
+  const moveFieldLayer = useCallback((id: string, direction: 'up' | 'down') => {
+    setCurrentTemplate(prev => ({
+      ...prev,
+      fields: prev.fields.map(field => {
+        if (field.id === id) {
+          const newZIndex = direction === 'up' 
+            ? Math.min(field.zIndex + 1, prev.fields.length)
+            : Math.max(field.zIndex - 1, 1);
+          return { ...field, zIndex: newZIndex };
+        }
+        return field;
+      })
+    }));
+  }, []);
+
+  const moveFieldPosition = useCallback((id: string, direction: 'up' | 'down' | 'left' | 'right', amount: number = 1) => {
+    const field = currentTemplate.fields.find(f => f.id === id);
+    if (!field) return;
+
+    let newX = field.x;
+    let newY = field.y;
+
+    switch (direction) {
+      case 'up':
+        newY = Math.max(0, field.y - amount);
+        break;
+      case 'down':
+        newY = Math.min(currentTemplate.backgroundStyle.height - field.height, field.y + amount);
+        break;
+      case 'left':
+        newX = Math.max(0, field.x - amount);
+        break;
+      case 'right':
+        newX = Math.min(currentTemplate.backgroundStyle.width - field.width, field.x + amount);
+        break;
+    }
+
+    updateField(id, { x: newX, y: newY });
+  }, [currentTemplate.fields, currentTemplate.backgroundStyle, updateField]);
+
+  const clearAllFields = useCallback(() => {
+    if (window.confirm('Are you sure you want to delete all fields? This action cannot be undone.')) {
+      setCurrentTemplate(prev => ({
+        ...prev,
+        fields: []
+      }));
+      setSelectedField(null);
+    }
+  }, []);
+
+  const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!editMode || !canvasRef.current || isDragging) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Check if clicking on existing field
+    const clickedField = currentTemplate.fields.find(field => 
+      x >= field.x && x <= field.x + field.width &&
+      y >= field.y && y <= field.y + field.height
+    );
+    
+    if (clickedField) {
+      setSelectedField(clickedField.id);
+    } else {
+      // Add new field at click position
+      addField(x, y);
+    }
+  }, [editMode, currentTemplate.fields, addField, isDragging]);
+
+  const handleMouseDown = useCallback((event: React.MouseEvent, fieldId: string) => {
+    if (!editMode) return;
+    
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const field = currentTemplate.fields.find(f => f.id === fieldId);
+    if (!field) return;
+
+    setSelectedField(fieldId);
+    setIsDragging(true);
+    
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (rect) {
+      setDragOffset({
+        x: event.clientX - rect.left - field.x,
+        y: event.clientY - rect.top - field.y
+      });
+    }
+  }, [editMode, currentTemplate.fields]);
+
+  const handleMouseMove = useCallback((event: React.MouseEvent) => {
+    if (!isDragging || !selectedField || !canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const newX = Math.max(0, Math.min(
+      currentTemplate.backgroundStyle.width - 200, 
+      event.clientX - rect.left - dragOffset.x
+    ));
+    const newY = Math.max(0, Math.min(
+      currentTemplate.backgroundStyle.height - 30, 
+      event.clientY - rect.top - dragOffset.y
+    ));
+
+    updateField(selectedField, { x: newX, y: newY });
+  }, [isDragging, selectedField, dragOffset, currentTemplate.backgroundStyle, updateField]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+    setDragOffset({ x: 0, y: 0 });
+  }, []);
+
+  const updateCertificateData = useCallback((fieldId: string, value: string) => {
+    setCertificateData(prev => ({
+      ...prev,
+      [fieldId]: value
+    }));
+  }, []);
+
+  const generateCertificate = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      
+      const { jsPDF } = await import('jspdf');
+      const pdf = new jsPDF({
+        orientation: currentTemplate.backgroundStyle.width > currentTemplate.backgroundStyle.height ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [currentTemplate.backgroundStyle.width, currentTemplate.backgroundStyle.height]
+      });
+
+      // Add background image if available
+      if (currentTemplate.fileUrl && currentTemplate.templateType === 'image') {
+        try {
+          pdf.addImage(
+            currentTemplate.fileUrl, 
+            'JPEG', 
+            0, 
+            0, 
+            currentTemplate.backgroundStyle.width, 
+            currentTemplate.backgroundStyle.height
+          );
+        } catch (error) {
+          console.warn('Could not add background image to PDF');
+        }
+      }
+
+      // Add text fields sorted by zIndex
+      const sortedFields = [...currentTemplate.fields].sort((a, b) => a.zIndex - b.zIndex);
+      sortedFields.forEach(field => {
+        let value = field.value;
+        
+        // Use database data for database fields
+        if (field.fieldType === 'database' && field.databaseField) {
+          value = certificateData[field.databaseField] || field.value;
+        } else {
+          value = certificateData[field.id] || field.value;
+        }
+        
+        pdf.setFontSize(field.fontSize);
+        pdf.setTextColor(field.color);
+        pdf.text(value, field.x, field.y + field.fontSize);
+      });
+
+      // Save certificate to database if we have exam attempt data
+      if (selectedExam && selectedStudent && examAttempts.length > 0) {
+        const attempt = examAttempts[0];
+        const certificateNumber = `CERT-${Date.now()}`;
+        
+        try {
+          const { error: certError } = await supabase
+            .from('certificates')
+            .insert({
+              certificate_number: certificateNumber,
+              user_id: selectedStudent,
+              exam_id: selectedExam,
+              attempt_id: attempt.id,
+              score: attempt.score,
+              percentage: attempt.percentage,
+              grade_text: attempt.percentage >= (exams.find(e => e.id === selectedExam)?.passingScore || 70) ? 'PASS' : 'FAIL',
+              verification_code: `VER-${Date.now()}`,
+              metadata: {
+                template_name: currentTemplate.name,
+                fields: currentTemplate.fields.length
+              }
+            });
+            
+          if (certError) {
+            console.error('Error saving certificate to database:', certError);
+          } else {
+            console.log('✅ Certificate saved to database');
+          }
+        } catch (error) {
+          console.error('Error saving certificate:', error);
+        }
+      }
+
+      pdf.save(`certificate-${currentTemplate.name}-${Date.now()}.pdf`);
+    } catch (error) {
+      console.error('Error generating certificate:', error);
+      alert('Error generating certificate. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentTemplate, certificateData, selectedExam, selectedStudent, examAttempts, exams]);
+
+  const saveTemplate = useCallback(() => {
+    try {
+      const templateData = {
+        name: currentTemplate.name,
+        fields: currentTemplate.fields,
+        backgroundStyle: currentTemplate.backgroundStyle
+      };
+      localStorage.setItem('certificate-template', JSON.stringify(templateData));
+      alert('Template saved successfully!');
+    } catch (error) {
+      console.error('Error saving template:', error);
+      alert('Error saving template. Please try again.');
+    }
+  }, [currentTemplate]);
+
+  const selectedFieldData = currentTemplate.fields.find(f => f.id === selectedField);
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="text-center">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Modern Certificate Designer</h1>
-        <p className="text-gray-600">Create stunning, professional certificates with modern designs and patterns</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Certificate Designer</h1>
+        <p className="text-gray-600">Connect with database to create certificates from exam results</p>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-gray-200">
-        {[
-          { id: 'templates', label: 'Templates', icon: <Layers className="h-4 w-4" /> },
-          { id: 'design', label: 'Design', icon: <Palette className="h-4 w-4" /> },
-          { id: 'content', label: 'Content', icon: <Type className="h-4 w-4" /> },
-          { id: 'elements', label: 'Elements', icon: <ImageIcon className="h-4 w-4" /> }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium transition-colors ${
-              activeTab === tab.id
-                ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Configuration Panel */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Templates Tab */}
-          {activeTab === 'templates' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Choose a Template</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {modernTemplates.map(template => (
-                    <div
-                      key={template.id}
-                      onClick={() => handleTemplateSelect(template)}
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                        selectedTemplate.id === template.id
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 mb-3">
-                        <div 
-                          className="w-8 h-8 rounded-full"
-                          style={{ backgroundColor: template.design.primaryColor }}
-                        ></div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{template.name}</h3>
-                          <p className="text-sm text-gray-600 capitalize">{template.design.layout} Style</p>
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-500 space-y-1">
-                        <div className="flex items-center gap-2">
-                          {getLayoutIcon(template.design.layout)}
-                          <span>Layout: {template.design.layout}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {getPatternIcon(template.design.pattern)}
-                          <span>Pattern: {template.design.pattern}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Design Tab */}
-          {activeTab === 'design' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Design Settings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Colors */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Colors</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Background</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={customTemplate.design.backgroundColor}
-                          onChange={(e) => updateDesign('backgroundColor', e.target.value)}
-                          className="w-12 h-10 rounded border border-gray-300"
-                        />
-                        <Input
-                          value={customTemplate.design.backgroundColor}
-                          onChange={(e) => updateDesign('backgroundColor', e.target.value)}
-                          className="flex-1"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Primary Color</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={customTemplate.design.primaryColor}
-                          onChange={(e) => updateDesign('primaryColor', e.target.value)}
-                          className="w-12 h-10 rounded border border-gray-300"
-                        />
-                        <Input
-                          value={customTemplate.design.primaryColor}
-                          onChange={(e) => updateDesign('primaryColor', e.target.value)}
-                          className="flex-1"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Accent Color</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={customTemplate.design.accentColor}
-                          onChange={(e) => updateDesign('accentColor', e.target.value)}
-                          className="w-12 h-10 rounded border border-gray-300"
-                        />
-                        <Input
-                          value={customTemplate.design.accentColor}
-                          onChange={(e) => updateDesign('accentColor', e.target.value)}
-                          className="flex-1"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={customTemplate.design.textColor}
-                          onChange={(e) => updateDesign('textColor', e.target.value)}
-                          className="w-12 h-10 rounded border border-gray-300"
-                        />
-                        <Input
-                          value={customTemplate.design.textColor}
-                          onChange={(e) => updateDesign('textColor', e.target.value)}
-                          className="flex-1"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Border Color</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={customTemplate.design.borderColor}
-                          onChange={(e) => updateDesign('borderColor', e.target.value)}
-                          className="w-12 h-10 rounded border border-gray-300"
-                        />
-                        <Input
-                          value={customTemplate.design.borderColor}
-                          onChange={(e) => updateDesign('borderColor', e.target.value)}
-                          className="flex-1"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Layout & Style */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Layout & Style</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Layout</label>
-                      <select
-                        value={customTemplate.design.layout}
-                        onChange={(e) => updateDesign('layout', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="classic">Classic</option>
-                        <option value="modern">Modern</option>
-                        <option value="elegant">Elegant</option>
-                        <option value="corporate">Corporate</option>
-                        <option value="creative">Creative</option>
-                        <option value="minimal">Minimal</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
-                      <select
-                        value={customTemplate.design.fontFamily}
-                        onChange={(e) => updateDesign('fontFamily', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="serif">Serif (Traditional)</option>
-                        <option value="sans-serif">Sans-serif (Clean)</option>
-                        <option value="script">Script (Elegant)</option>
-                        <option value="modern">Modern (Contemporary)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Pattern</label>
-                      <select
-                        value={customTemplate.design.pattern}
-                        onChange={(e) => updateDesign('pattern', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="none">None</option>
-                        <option value="geometric">Geometric</option>
-                        <option value="waves">Waves</option>
-                        <option value="dots">Dots</option>
-                        <option value="lines">Lines</option>
-                        <option value="gradient">Gradient</option>
-                        <option value="watermark">Watermark</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Border Style</label>
-                      <select
-                        value={customTemplate.design.borderStyle}
-                        onChange={(e) => updateDesign('borderStyle', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="none">None</option>
-                        <option value="simple">Simple</option>
-                        <option value="decorative">Decorative</option>
-                        <option value="double">Double</option>
-                        <option value="shadow">Shadow</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Content Tab */}
-          {activeTab === 'content' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Content Settings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Input
-                  label="Certificate Title"
-                  value={customTemplate.title}
-                  onChange={(e) => updateContent('title', e.target.value)}
-                  placeholder="CERTIFICATE OF COMPLETION"
-                />
-                <Input
-                  label="Subtitle"
-                  value={customTemplate.subtitle}
-                  onChange={(e) => updateContent('subtitle', e.target.value)}
-                  placeholder="This is to certify that"
-                />
-                <Input
-                  label="Organization Name"
-                  value={customTemplate.organizationName}
-                  onChange={(e) => updateContent('organizationName', e.target.value)}
-                  placeholder="Your Organization Name"
-                />
-                <Input
-                  label="Signatory Name"
-                  value={customTemplate.signatoryName}
-                  onChange={(e) => updateContent('signatoryName', e.target.value)}
-                  placeholder="Dr. John Smith"
-                />
-                <Input
-                  label="Signatory Title"
-                  value={customTemplate.signatoryTitle}
-                  onChange={(e) => updateContent('signatoryTitle', e.target.value)}
-                  placeholder="Director of Education"
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Elements Tab */}
-          {activeTab === 'elements' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Certificate Elements</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {Object.entries(customTemplate.elements).map(([key, value]) => (
-                    <div key={key} className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-gray-700 capitalize">
-                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                      </label>
-                      <input
-                        type="checkbox"
-                        checked={value}
-                        onChange={(e) => updateElements(key as keyof CertificateTemplate['elements'], e.target.checked)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+      {/* Progress Steps */}
+      <div className="flex justify-center mb-8">
+        <div className="flex items-center space-x-4">
+          <div className={`flex items-center space-x-2 ${activeSection === 'database' ? 'text-blue-600' : 'text-gray-400'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${activeSection === 'database' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>1</div>
+            <span className="font-medium">Select Data</span>
+          </div>
+          <div className="w-8 h-px bg-gray-300"></div>
+          <div className={`flex items-center space-x-2 ${activeSection === 'import' ? 'text-blue-600' : 'text-gray-400'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${activeSection === 'import' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>2</div>
+            <span className="font-medium">Import Template</span>
+          </div>
+          <div className="w-8 h-px bg-gray-300"></div>
+          <div className={`flex items-center space-x-2 ${activeSection === 'edit' ? 'text-blue-600' : 'text-gray-400'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${activeSection === 'edit' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>3</div>
+            <span className="font-medium">Position Fields</span>
+          </div>
+          <div className="w-8 h-px bg-gray-300"></div>
+          <div className={`flex items-center space-x-2 ${activeSection === 'preview' ? 'text-blue-600' : 'text-gray-400'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${activeSection === 'preview' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>4</div>
+            <span className="font-medium">Generate Certificate</span>
+          </div>
         </div>
+      </div>
 
-        {/* Preview Panel */}
-        <div className="space-y-4">
+      {/* Step 1: Database Selection */}
+      {activeSection === 'database' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Eye className="h-5 w-5" />
-                Live Preview
+                <Database className="h-5 w-5" />
+                Step 1: Select Exam & Student Data
+                <Button
+                  onClick={loadDatabaseData}
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto"
+                  disabled={loadingData}
+                >
+                  <RefreshCw className={`h-4 w-4 ${loadingData ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
               </CardTitle>
             </CardHeader>
+            <CardContent className="space-y-6">
+              {loadingData ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading data from database...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Exam Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <BookOpen className="h-4 w-4 inline mr-2" />
+                      Select Exam
+                    </label>
+                    <select
+                      value={selectedExam}
+                      onChange={(e) => setSelectedExam(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Choose an exam...</option>
+                      {exams.map(exam => (
+                        <option key={exam.id} value={exam.id}>
+                          {exam.title} ({exam.category})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {exams.length} published exams found in database
+                    </p>
+                  </div>
+
+                  {/* Student Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Users className="h-4 w-4 inline mr-2" />
+                      Select Student
+                    </label>
+                    <select
+                      value={selectedStudent}
+                      onChange={(e) => setSelectedStudent(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Choose a student...</option>
+                      {students.map(student => (
+                        <option key={student.id} value={student.id}>
+                          {student.name} ({student.email})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {students.length} students found in database
+                    </p>
+                  </div>
+
+                  {/* Exam Attempts */}
+                  {selectedExam && selectedStudent && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <Award className="h-4 w-4 inline mr-2" />
+                        Exam Attempts
+                      </label>
+                      {examAttempts.length > 0 ? (
+                        <div className="space-y-2">
+                          {examAttempts.map((attempt, index) => (
+                            <div key={attempt.id} className="p-3 border rounded-lg bg-green-50 border-green-200">
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <p className="font-medium text-green-800">
+                                    Attempt #{index + 1} - {attempt.percentage}%
+                                  </p>
+                                  <p className="text-sm text-green-600">
+                                    Completed: {new Date(attempt.completed_at).toLocaleDateString()}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-medium text-green-800">
+                                    Score: {attempt.score}
+                                  </p>
+                                  <p className="text-xs text-green-600">
+                                    {attempt.percentage >= (exams.find(e => e.id === selectedExam)?.passingScore || 70) ? 'PASSED' : 'FAILED'}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-4 border border-gray-200 rounded-lg text-center text-gray-500">
+                          <p>No completed exam attempts found for this student and exam combination.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Database Fields Preview */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Available Database Fields</CardTitle>
+            </CardHeader>
             <CardContent>
-              <div 
-                className="w-full aspect-[4/3] border-2 rounded-lg p-4 text-center relative overflow-hidden"
-                style={{ 
-                  backgroundColor: customTemplate.design.backgroundColor,
-                  borderColor: customTemplate.design.borderColor,
-                  color: customTemplate.design.textColor
-                }}
-              >
-                {/* Background Pattern */}
-                {customTemplate.elements.showPattern && customTemplate.design.pattern !== 'none' && (
-                  <div className="absolute inset-0 opacity-10">
-                    {customTemplate.design.pattern === 'waves' && (
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-current to-transparent transform rotate-12"></div>
-                    )}
-                    {customTemplate.design.pattern === 'dots' && (
-                      <div className="absolute inset-0" style={{
-                        backgroundImage: `radial-gradient(circle, currentColor 1px, transparent 1px)`,
-                        backgroundSize: '20px 20px'
-                      }}></div>
-                    )}
-                    {customTemplate.design.pattern === 'geometric' && (
-                      <div className="absolute inset-0" style={{
-                        backgroundImage: `linear-gradient(45deg, currentColor 25%, transparent 25%), linear-gradient(-45deg, currentColor 25%, transparent 25%)`,
-                        backgroundSize: '20px 20px'
-                      }}></div>
-                    )}
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">
+                  These fields will be automatically populated from the database:
+                </p>
+                <div className="grid grid-cols-1 gap-2">
+                  {databaseFieldOptions.map(field => (
+                    <div key={field.value} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                      <span className="text-sm font-medium">{field.label}</span>
+                      <span className="text-xs text-gray-500 font-mono">
+                        {certificateData[field.value] || `{${field.value}}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                
+                {selectedExam && selectedStudent && examAttempts.length > 0 && (
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800 font-medium">✅ Data loaded successfully!</p>
+                    <p className="text-xs text-blue-600 mt-1">
+                      Certificate data is ready. Proceed to import your template.
+                    </p>
                   </div>
                 )}
-
-                <div className="relative z-10 space-y-2">
-                  <h1 
-                    className="text-lg font-bold"
-                    style={{ color: customTemplate.design.primaryColor }}
-                  >
-                    {customTemplate.title}
-                  </h1>
-                  <div 
-                    className="w-16 h-0.5 mx-auto"
-                    style={{ backgroundColor: customTemplate.design.accentColor }}
-                  ></div>
-                  <p className="text-sm">{customTemplate.subtitle}</p>
-                  <p className="text-base font-semibold">John Doe</p>
-                  <p className="text-sm">Healthcare Professional Certification</p>
-                  <p className="text-xs">Score: 95%</p>
-                  <div className="pt-2">
-                    <p className="text-xs font-medium">{customTemplate.organizationName}</p>
-                    <div className="w-12 border-t border-current mx-auto mt-1"></div>
-                    <p className="text-xs">{customTemplate.signatoryName}</p>
-                    <p className="text-xs">{customTemplate.signatoryTitle}</p>
-                  </div>
-                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Actions */}
-          <div className="space-y-2">
-            <Button onClick={generatePreview} className="w-full">
-              <Download className="h-4 w-4 mr-2" />
-              Generate Preview PDF
-            </Button>
-            <Button onClick={saveTemplate} variant="outline" className="w-full">
-              <Save className="h-4 w-4 mr-2" />
-              Save Template
-            </Button>
-            <Button onClick={resetToDefault} variant="outline" className="w-full">
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Reset to Default
+          {/* Navigation */}
+          <div className="lg:col-span-2 flex justify-between">
+            <div></div>
+            <Button 
+              onClick={() => setActiveSection('import')} 
+              disabled={!selectedExam || !selectedStudent || examAttempts.length === 0}
+            >
+              Next: Import Template
             </Button>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Step 2: Import Template */}
+      {activeSection === 'import' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Step 2: Import Certificate Template
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              <div className="text-center">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 hover:border-gray-400 transition-colors">
+                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Upload Certificate Template</h3>
+                  <p className="text-gray-600 mb-4">
+                    Upload an image (PNG, JPG) or PDF file. The template will preserve all styling and layout.
+                  </p>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.gif"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="template-upload"
+                  />
+                  <label
+                    htmlFor="template-upload"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                  >
+                    Choose File
+                  </label>
+                </div>
+              </div>
+
+              <div className="text-center text-sm text-gray-500 space-y-2">
+                <p><strong>Recommended:</strong> Export your PowerPoint slide as PNG/JPG for best results</p>
+                <p>Supported formats: Images (.jpg, .png, .gif), PDF (.pdf)</p>
+              </div>
+
+              <div className="flex justify-between">
+                <Button onClick={() => setActiveSection('database')} variant="outline">
+                  Back
+                </Button>
+                <div></div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 3: Edit Template */}
+      {activeSection === 'edit' && (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Template Canvas */}
+          <div className="lg:col-span-3">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Edit3 className="h-5 w-5" />
+                    Position Fields: {currentTemplate.name}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => setEditMode(!editMode)}
+                      variant={editMode ? 'default' : 'outline'}
+                      size="sm"
+                    >
+                      {editMode ? <MousePointer className="h-4 w-4 mr-2" /> : <Type className="h-4 w-4 mr-2" />}
+                      {editMode ? 'Edit Mode' : 'View Mode'}
+                    </Button>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* Field Management Toolbar */}
+                {editMode && (
+                  <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
+                    <div className="flex flex-wrap gap-2 items-center mb-3">
+                      <Button onClick={addFieldFromButton} size="sm" className="flex items-center gap-2">
+                        <Plus className="h-4 w-4" />
+                        Add Field
+                      </Button>
+                      {selectedField && (
+                        <>
+                          <Button 
+                            onClick={() => duplicateField(selectedField)} 
+                            size="sm" 
+                            variant="outline"
+                            className="flex items-center gap-2"
+                          >
+                            <Copy className="h-4 w-4" />
+                            Duplicate
+                          </Button>
+                          <Button 
+                            onClick={() => removeField(selectedField)} 
+                            size="sm" 
+                            variant="outline"
+                            className="flex items-center gap-2 text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </Button>
+                          <div className="flex items-center gap-1 ml-4">
+                            <span className="text-sm text-gray-600 mr-2">Move:</span>
+                            <Button 
+                              onClick={() => moveFieldPosition(selectedField, 'up', 5)} 
+                              size="sm" 
+                              variant="outline"
+                              title="Move up"
+                            >
+                              <ArrowUp className="h-3 w-3" />
+                            </Button>
+                            <Button 
+                              onClick={() => moveFieldPosition(selectedField, 'down', 5)} 
+                              size="sm" 
+                              variant="outline"
+                              title="Move down"
+                            >
+                              <ArrowDown className="h-3 w-3" />
+                            </Button>
+                            <Button 
+                              onClick={() => moveFieldPosition(selectedField, 'left', 5)} 
+                              size="sm" 
+                              variant="outline"
+                              title="Move left"
+                            >
+                              <ArrowLeft className="h-3 w-3" />
+                            </Button>
+                            <Button 
+                              onClick={() => moveFieldPosition(selectedField, 'right', 5)} 
+                              size="sm" 
+                              variant="outline"
+                              title="Move right"
+                            >
+                              <ArrowRight className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                      {currentTemplate.fields.length > 0 && (
+                        <Button 
+                          onClick={clearAllFields} 
+                          size="sm" 
+                          variant="outline"
+                          className="flex items-center gap-2 text-red-600 hover:text-red-700 ml-auto"
+                        >
+                          <X className="h-4 w-4" />
+                          Clear All
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {/* Database Fields Quick Add */}
+                    <div className="border-t pt-3">
+                      <p className="text-sm text-gray-600 mb-2">Quick Add Database Fields:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {databaseFieldOptions.slice(0, 6).map(field => (
+                          <Button
+                            key={field.value}
+                            onClick={() => addDatabaseField(field.value)}
+                            size="sm"
+                            variant="outline"
+                            className="text-xs"
+                          >
+                            <Database className="h-3 w-3 mr-1" />
+                            {field.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-center mb-4">
+                  <p className="text-sm text-gray-600">
+                    {editMode ? 'Click to add fields, drag to position them exactly where you need them' : 'Switch to Edit Mode to position fields'}
+                  </p>
+                </div>
+                
+                <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
+                  <div
+                    ref={canvasRef}
+                    className={`relative ${editMode ? 'cursor-crosshair' : 'cursor-default'} select-none`}
+                    style={{
+                      width: currentTemplate.backgroundStyle.width,
+                      height: currentTemplate.backgroundStyle.height,
+                      maxWidth: '100%',
+                      backgroundImage: currentTemplate.backgroundStyle.backgroundImage,
+                      backgroundColor: currentTemplate.backgroundStyle.backgroundColor,
+                      backgroundSize: 'contain',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'center',
+                      margin: '0 auto'
+                    }}
+                    onClick={handleCanvasClick}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                  >
+                    {/* Render editable fields sorted by zIndex */}
+                    {currentTemplate.fields
+                      .sort((a, b) => a.zIndex - b.zIndex)
+                      .map(field => (
+                      <div
+                        key={field.id}
+                        className={`absolute border-2 ${
+                          selectedField === field.id 
+                            ? 'border-blue-500 bg-blue-50' 
+                            : editMode 
+                              ? field.fieldType === 'database'
+                                ? 'border-dashed border-green-400 hover:border-green-600 bg-green-50'
+                                : 'border-dashed border-gray-400 hover:border-gray-600'
+                              : 'border-transparent'
+                        } ${editMode ? 'cursor-move' : ''} transition-all`}
+                        style={{
+                          left: field.x,
+                          top: field.y,
+                          width: field.width,
+                          height: field.height,
+                          fontSize: field.fontSize,
+                          color: field.color,
+                          fontFamily: field.fontFamily,
+                          fontWeight: field.fontWeight,
+                          textAlign: field.textAlign as any,
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '2px 4px',
+                          zIndex: field.zIndex,
+                          userSelect: 'none'
+                        }}
+                        onMouseDown={(e) => handleMouseDown(e, field.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (editMode) setSelectedField(field.id);
+                        }}
+                      >
+                        <span className="truncate pointer-events-none">
+                          {field.fieldType === 'database' && field.databaseField 
+                            ? certificateData[field.databaseField] || field.value
+                            : certificateData[field.id] || field.value
+                          }
+                        </span>
+                        {field.fieldType === 'database' && (
+                          <Database className="h-3 w-3 ml-1 text-green-600" />
+                        )}
+                        {editMode && selectedField === field.id && (
+                          <div className="absolute -top-10 -right-2 flex gap-1 bg-white shadow-lg rounded border p-1">
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                duplicateField(field.id);
+                              }}
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              title="Duplicate"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeField(field.id);
+                              }}
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Properties Panel */}
+          <div className="space-y-4">
+            {/* Field Properties */}
+            {selectedFieldData && editMode && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    Field Properties
+                    {selectedFieldData.fieldType === 'database' && (
+                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                        Database Field
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Input
+                    label="Field Name"
+                    value={selectedFieldData.name}
+                    onChange={(e) => updateField(selectedField!, { name: e.target.value })}
+                    size="sm"
+                  />
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Field Type</label>
+                    <select
+                      value={selectedFieldData.fieldType}
+                      onChange={(e) => updateField(selectedField!, { fieldType: e.target.value as any })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                    >
+                      {fieldTypeOptions.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {selectedFieldData.fieldType === 'database' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Database Field</label>
+                      <select
+                        value={selectedFieldData.databaseField || ''}
+                        onChange={(e) => updateField(selectedField!, { databaseField: e.target.value })}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                      >
+                        <option value="">Select database field...</option>
+                        {databaseFieldOptions.map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {selectedFieldData.fieldType !== 'database' && (
+                    <Input
+                      label="Default Text"
+                      value={selectedFieldData.value}
+                      onChange={(e) => updateField(selectedField!, { value: e.target.value })}
+                      size="sm"
+                    />
+                  )}
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      label="X Position"
+                      type="number"
+                      value={Math.round(selectedFieldData.x)}
+                      onChange={(e) => updateField(selectedField!, { x: parseInt(e.target.value) || 0 })}
+                      size="sm"
+                    />
+                    <Input
+                      label="Y Position"
+                      type="number"
+                      value={Math.round(selectedFieldData.y)}
+                      onChange={(e) => updateField(selectedField!, { y: parseInt(e.target.value) || 0 })}
+                      size="sm"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      label="Width"
+                      type="number"
+                      value={selectedFieldData.width}
+                      onChange={(e) => updateField(selectedField!, { width: parseInt(e.target.value) || 100 })}
+                      size="sm"
+                    />
+                    <Input
+                      label="Height"
+                      type="number"
+                      value={selectedFieldData.height}
+                      onChange={(e) => updateField(selectedField!, { height: parseInt(e.target.value) || 20 })}
+                      size="sm"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      label="Font Size"
+                      type="number"
+                      value={selectedFieldData.fontSize}
+                      onChange={(e) => updateField(selectedField!, { fontSize: parseInt(e.target.value) || 12 })}
+                      size="sm"
+                    />
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Color</label>
+                      <input
+                        type="color"
+                        value={selectedFieldData.color}
+                        onChange={(e) => updateField(selectedField!, { color: e.target.value })}
+                        className="w-full h-8 rounded border border-gray-300"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Font Family</label>
+                    <select
+                      value={selectedFieldData.fontFamily}
+                      onChange={(e) => updateField(selectedField!, { fontFamily: e.target.value })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                    >
+                      {fontFamilyOptions.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Font Weight</label>
+                      <select
+                        value={selectedFieldData.fontWeight}
+                        onChange={(e) => updateField(selectedField!, { fontWeight: e.target.value })}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                      >
+                        <option value="normal">Normal</option>
+                        <option value="bold">Bold</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Text Align</label>
+                      <select
+                        value={selectedFieldData.textAlign}
+                        onChange={(e) => updateField(selectedField!, { textAlign: e.target.value })}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                      >
+                        <option value="left">Left</option>
+                        <option value="center">Center</option>
+                        <option value="right">Right</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                    <strong>Tip:</strong> Drag the field on the template for precise positioning, or use the arrow buttons in the toolbar for fine adjustments.
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Fields List */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Layers className="h-4 w-4" />
+                    Fields ({currentTemplate.fields.length})
+                  </span>
+                  {editMode && (
+                    <Button onClick={addFieldFromButton} size="sm" variant="outline">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {currentTemplate.fields
+                    .sort((a, b) => b.zIndex - a.zIndex)
+                    .map(field => (
+                    <div
+                      key={field.id}
+                      className={`p-2 border rounded cursor-pointer text-sm transition-colors ${
+                        selectedField === field.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => setSelectedField(field.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium truncate">{field.name}</span>
+                            {field.fieldType === 'database' && (
+                              <Database className="h-3 w-3 text-green-600" />
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate">
+                            Position: {Math.round(field.x)}, {Math.round(field.y)} • 
+                            {field.fieldType === 'database' && field.databaseField 
+                              ? ` DB: ${field.databaseField}`
+                              : ` ${field.value}`
+                            }
+                          </div>
+                        </div>
+                        {editMode && (
+                          <div className="flex gap-1 ml-2">
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                duplicateField(field.id);
+                              }}
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeField(field.id);
+                              }}
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {currentTemplate.fields.length === 0 && (
+                    <p className="text-sm text-gray-500 text-center py-4">
+                      No fields added yet.<br />
+                      {editMode ? 'Click on the template to add fields.' : 'Switch to Edit Mode to add fields.'}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex flex-col gap-2">
+              <Button 
+                onClick={() => setActiveSection('import')} 
+                variant="outline" 
+                size="sm"
+              >
+                Back
+              </Button>
+              <Button 
+                onClick={() => setActiveSection('preview')} 
+                size="sm"
+                disabled={currentTemplate.fields.length === 0}
+              >
+                Next: Preview
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 4: Preview & Generate */}
+      {activeSection === 'preview' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Data Input */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Type className="h-5 w-5" />
+                Certificate Data
+                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded ml-2">
+                  Connected to Database
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Show selected exam and student info */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-2">Selected Data:</h4>
+                <p className="text-sm text-blue-800">
+                  <strong>Exam:</strong> {exams.find(e => e.id === selectedExam)?.title}
+                </p>
+                <p className="text-sm text-blue-800">
+                  <strong>Student:</strong> {students.find(s => s.id === selectedStudent)?.name}
+                </p>
+                {examAttempts.length > 0 && (
+                  <p className="text-sm text-blue-800">
+                    <strong>Score:</strong> {examAttempts[0].percentage}% ({examAttempts[0].score} points)
+                  </p>
+                )}
+              </div>
+
+              {/* Editable fields for non-database fields */}
+              {currentTemplate.fields
+                .filter(field => field.fieldType !== 'database')
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map(field => (
+                <div key={field.id}>
+                  <Input
+                    label={`${field.name}${field.required ? ' *' : ''}`}
+                    type={field.fieldType === 'email' ? 'email' : field.fieldType === 'number' ? 'number' : field.fieldType === 'date' ? 'date' : 'text'}
+                    value={certificateData[field.id] || ''}
+                    onChange={(e) => updateCertificateData(field.id, e.target.value)}
+                    placeholder={field.placeholder}
+                    required={field.required}
+                  />
+                </div>
+              ))}
+
+              {/* Database fields preview */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-gray-900">Database Fields (Auto-populated):</h4>
+                {currentTemplate.fields
+                  .filter(field => field.fieldType === 'database' && field.databaseField)
+                  .map(field => (
+                  <div key={field.id} className="flex justify-between items-center p-2 bg-green-50 rounded">
+                    <span className="text-sm font-medium">{field.name}</span>
+                    <span className="text-sm text-green-800">
+                      {certificateData[field.databaseField!] || 'N/A'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Preview */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Certificate Preview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
+                <div
+                  className="relative"
+                  style={{
+                    width: currentTemplate.backgroundStyle.width,
+                    height: currentTemplate.backgroundStyle.height,
+                    maxWidth: '100%',
+                    backgroundImage: currentTemplate.backgroundStyle.backgroundImage,
+                    backgroundColor: currentTemplate.backgroundStyle.backgroundColor,
+                    backgroundSize: 'contain',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'center',
+                    margin: '0 auto'
+                  }}
+                >
+                  {currentTemplate.fields
+                    .sort((a, b) => a.zIndex - b.zIndex)
+                    .map(field => (
+                    <div
+                      key={field.id}
+                      className="absolute"
+                      style={{
+                        left: field.x,
+                        top: field.y,
+                        width: field.width,
+                        height: field.height,
+                        fontSize: field.fontSize,
+                        color: field.color,
+                        fontFamily: field.fontFamily,
+                        fontWeight: field.fontWeight,
+                        textAlign: field.textAlign as any,
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '2px 4px',
+                        zIndex: field.zIndex
+                      }}
+                    >
+                      <span className="truncate">
+                        {field.fieldType === 'database' && field.databaseField 
+                          ? certificateData[field.databaseField] || field.value
+                          : certificateData[field.id] || field.value
+                        }
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 mt-4">
+                <Button 
+                  onClick={() => setActiveSection('edit')} 
+                  variant="outline"
+                >
+                  Back to Edit
+                </Button>
+                <Button 
+                  onClick={generateCertificate} 
+                  disabled={isLoading}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  {isLoading ? 'Generating...' : 'Generate & Save Certificate'}
+                </Button>
+                <Button 
+                  onClick={saveTemplate} 
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  Save Template
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
-};
-
-// Enhanced PDF Generation Function
-export const generateModernCertificatePDF = async (certificate: any, template: CertificateTemplate) => {
-  try {
-    const { jsPDF } = await import('jspdf');
-    
-    const pdf = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4'
-    });
-
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-
-    // Helper function to convert hex to RGB
-    const hexToRgb = (hex: string) => {
-      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-      return result ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16)
-      } : { r: 0, g: 0, b: 0 };
-    };
-
-    const bgColor = hexToRgb(template.design.backgroundColor);
-    const primaryColor = hexToRgb(template.design.primaryColor);
-    const accentColor = hexToRgb(template.design.accentColor);
-    const textColor = hexToRgb(template.design.textColor);
-    const borderColor = hexToRgb(template.design.borderColor);
-
-    // Set background
-    if (template.design.backgroundColor !== '#ffffff') {
-      pdf.setFillColor(bgColor.r, bgColor.g, bgColor.b);
-      pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-    }
-
-    // Add border if enabled
-    if (template.elements.showBorder && template.design.borderStyle !== 'none') {
-      pdf.setDrawColor(borderColor.r, borderColor.g, borderColor.b);
-      
-      if (template.design.borderStyle === 'double') {
-        pdf.setLineWidth(2);
-        pdf.rect(10, 10, pageWidth - 20, pageHeight - 20, 'S');
-        pdf.rect(15, 15, pageWidth - 30, pageHeight - 30, 'S');
-      } else if (template.design.borderStyle === 'decorative') {
-        pdf.setLineWidth(3);
-        pdf.rect(8, 8, pageWidth - 16, pageHeight - 16, 'S');
-        // Add corner decorations
-        const cornerSize = 15;
-        pdf.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
-        pdf.rect(8, 8, cornerSize, cornerSize, 'F');
-        pdf.rect(pageWidth - 8 - cornerSize, 8, cornerSize, cornerSize, 'F');
-        pdf.rect(8, pageHeight - 8 - cornerSize, cornerSize, cornerSize, 'F');
-        pdf.rect(pageWidth - 8 - cornerSize, pageHeight - 8 - cornerSize, cornerSize, cornerSize, 'F');
-      } else {
-        pdf.setLineWidth(1);
-        pdf.rect(10, 10, pageWidth - 20, pageHeight - 20, 'S');
-      }
-    }
-
-    // Add background pattern
-    if (template.elements.showPattern && template.design.pattern !== 'none') {
-      pdf.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
-      pdf.setGState(new pdf.GState({opacity: 0.1}));
-      
-      if (template.design.pattern === 'dots') {
-        for (let x = 20; x < pageWidth - 20; x += 15) {
-          for (let y = 20; y < pageHeight - 20; y += 15) {
-            pdf.circle(x, y, 1, 'F');
-          }
-        }
-      } else if (template.design.pattern === 'lines') {
-        for (let x = 20; x < pageWidth - 20; x += 10) {
-          pdf.line(x, 20, x, pageHeight - 20);
-        }
-      }
-      
-      pdf.setGState(new pdf.GState({opacity: 1}));
-    }
-
-    // Set font based on template
-    const fontFamily = template.design.fontFamily === 'serif' ? 'times' : 'helvetica';
-    
-    // Title
-    pdf.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-    pdf.setFontSize(32);
-    pdf.setFont(fontFamily, 'bold');
-    pdf.text(template.title, pageWidth / 2, 50, { align: 'center' });
-
-    // Decorative line
-    pdf.setDrawColor(accentColor.r, accentColor.g, accentColor.b);
-    pdf.setLineWidth(3);
-    pdf.line(pageWidth / 2 - 60, 60, pageWidth / 2 + 60, 60);
-
-    // Subtitle
-    pdf.setTextColor(textColor.r, textColor.g, textColor.b);
-    pdf.setFontSize(18);
-    pdf.setFont(fontFamily, 'normal');
-    pdf.text(template.subtitle, pageWidth / 2, 80, { align: 'center' });
-
-    // Student name with background highlight
-    pdf.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
-    pdf.setGState(new pdf.GState({opacity: 0.1}));
-    const nameWidth = pdf.getTextWidth(certificate.studentName || 'Student Name');
-    pdf.rect(pageWidth / 2 - nameWidth / 2 - 10, 90, nameWidth + 20, 15, 'F');
-    pdf.setGState(new pdf.GState({opacity: 1}));
-
-    pdf.setTextColor(textColor.r, textColor.g, textColor.b);
-    pdf.setFontSize(28);
-    pdf.setFont(fontFamily, 'bold');
-    pdf.text(certificate.studentName || 'Student Name', pageWidth / 2, 100, { align: 'center' });
-
-    // Exam title
-    pdf.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-    pdf.setFontSize(20);
-    pdf.setFont(fontFamily, 'bold');
-    pdf.text(certificate.examTitle || 'Exam Title', pageWidth / 2, 125, { align: 'center' });
-
-    // Score and date
-    pdf.setTextColor(textColor.r, textColor.g, textColor.b);
-    pdf.setFontSize(14);
-    pdf.setFont(fontFamily, 'normal');
-    const completedDate = new Date(certificate.completedAt).toLocaleDateString();
-    pdf.text(`Score: ${certificate.score}% • Completed: ${completedDate}`, pageWidth / 2, 145, { align: 'center' });
-
-    // Organization
-    pdf.setFontSize(16);
-    pdf.setFont(fontFamily, 'bold');
-    pdf.text(template.organizationName, pageWidth / 2, 170, { align: 'center' });
-
-    // Signature section
-    if (template.elements.showSignature) {
-      pdf.setDrawColor(textColor.r, textColor.g, textColor.b);
-      pdf.line(pageWidth / 2 - 50, 190, pageWidth / 2 + 50, 190);
-      
-      pdf.setFontSize(12);
-      pdf.setFont(fontFamily, 'normal');
-      pdf.text(template.signatoryName, pageWidth / 2, 200, { align: 'center' });
-      pdf.text(template.signatoryTitle, pageWidth / 2, 208, { align: 'center' });
-    }
-
-    // Certificate number
-    pdf.setFontSize(10);
-    pdf.text(`Certificate #: ${certificate.certificateNumber}`, pageWidth - 20, pageHeight - 10, { align: 'right' });
-
-    // QR Code placeholder
-    if (template.elements.showQRCode) {
-      pdf.setDrawColor(textColor.r, textColor.g, textColor.b);
-      pdf.rect(20, pageHeight - 30, 20, 20, 'S');
-      pdf.setFontSize(8);
-      pdf.text('QR Code', 30, pageHeight - 18, { align: 'center' });
-    }
-
-    // Save the PDF
-    pdf.save(`modern-certificate-${certificate.certificateNumber || 'preview'}.pdf`);
-  } catch (error) {
-    console.error('Error generating PDF:', error);
-    alert('Error generating PDF. Please try again.');
-  }
 };
 
 export default ModernCertificateDesigner;

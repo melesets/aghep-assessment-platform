@@ -127,13 +127,6 @@ export const Login: React.FC = () => {
             </Button>
 
             {/* Login hints */}
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-xs text-blue-800 font-medium mb-2">Available Accounts:</p>
-              <div className="text-xs text-blue-700 space-y-1">
-                <div>• <strong>Admin:</strong> admin@admin.com / Password</div>
-                <div>• <strong>User:</strong> aghqu / agh123</div>
-              </div>
-            </div>
           </form>
         </CardContent>
       </Card>
