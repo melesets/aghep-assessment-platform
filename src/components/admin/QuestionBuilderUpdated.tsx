@@ -7,44 +7,108 @@ import {
   Plus, 
   Trash2, 
   Copy, 
+  Move, 
   Eye, 
   Save, 
   Upload, 
   Download, 
-  FileText,
+  Settings, 
+  Image, 
+  Video, 
+  FileText, 
+  MoreVertical,
   GripVertical,
   Star,
+  Clock,
   CheckSquare,
   Circle,
+  List,
+  ToggleLeft,
+  Calendar,
+  Hash,
+  Type,
+  AlignLeft,
+  Shuffle,
+  Lock,
+  Unlock,
   ChevronDown,
-  ChevronUp,
-  HelpCircle,
-  AlertCircle
+  ChevronUp
 } from 'lucide-react';
 
-// Simplified Question interface for better compatibility
+// Question Types (Google Forms-like)
+export type QuestionType = 
+  | 'multiple-choice'
+  | 'checkboxes'
+  | 'dropdown'
+  | 'short-answer'
+  | 'paragraph'
+  | 'linear-scale'
+  | 'multiple-choice-grid'
+  | 'checkbox-grid'
+  | 'date'
+  | 'time'
+  | 'file-upload'
+  | 'true-false'
+  | 'ranking'
+  | 'slider'
+  | 'number'
+  | 'email'
+  | 'url';
+
 export interface QuestionOption {
   id: string;
   text: string;
   isCorrect?: boolean;
+  points?: number;
+  image?: string;
+}
+
+export interface QuestionValidation {
+  required: boolean;
+  minLength?: number;
+  maxLength?: number;
+  minValue?: number;
+  maxValue?: number;
+  pattern?: string;
+  customMessage?: string;
+}
+
+export interface QuestionLogic {
+  showIf?: {
+    questionId: string;
+    condition: 'equals' | 'not-equals' | 'contains' | 'greater-than' | 'less-than';
+    value: string | number;
+  };
+  skipTo?: string; // Question ID to skip to
 }
 
 export interface Question {
   id: string;
-  type: 'multiple-choice';
+  type: QuestionType;
   title: string;
   description?: string;
   required: boolean;
   options?: QuestionOption[];
+  correctAnswer?: string | string[] | number;
   points: number;
+  timeLimit?: number; // in seconds
   explanation?: string;
+  image?: string;
+  video?: string;
+  audio?: string;
+  validation?: QuestionValidation;
+  logic?: QuestionLogic;
   settings: {
     shuffleOptions: boolean;
+    allowOther: boolean;
+    multipleCorrect: boolean;
     showPoints: boolean;
+    partialCredit: boolean;
   };
   metadata: {
     difficulty: 'easy' | 'medium' | 'hard';
     category: string;
+    tags: string[];
     createdAt: Date;
     updatedAt: Date;
   };
@@ -56,13 +120,58 @@ export interface ExamForm {
   description: string;
   questions: Question[];
   settings: {
+    shuffleQuestions: boolean;
+    showProgressBar: boolean;
+    allowBackNavigation: boolean;
+    showQuestionNumbers: boolean;
+    oneQuestionPerPage: boolean;
     timeLimit?: number;
     passingScore: number;
     maxAttempts: number;
     showCorrectAnswers: boolean;
     showScoreImmediately: boolean;
+    collectEmail: boolean;
+    requireSignIn: boolean;
+    allowAnonymous: boolean;
+  };
+  styling: {
+    theme: 'light' | 'dark' | 'custom';
+    primaryColor: string;
+    backgroundColor: string;
+    fontFamily: string;
+    headerImage?: string;
+  };
+  access: {
+    isPublic: boolean;
+    password?: string;
+    startDate?: Date;
+    endDate?: Date;
+    allowedDomains?: string[];
+  };
+  notifications: {
+    sendConfirmation: boolean;
+    emailTemplate?: string;
+    webhookUrl?: string;
   };
 }
+
+const questionTypes: { type: QuestionType; label: string; icon: React.ReactNode; description: string }[] = [
+  { type: 'multiple-choice', label: 'Multiple Choice', icon: <Circle className="h-4 w-4" />, description: 'Single correct answer' },
+  { type: 'checkboxes', label: 'Checkboxes', icon: <CheckSquare className="h-4 w-4" />, description: 'Multiple correct answers' },
+  { type: 'dropdown', label: 'Dropdown', icon: <ChevronDown className="h-4 w-4" />, description: 'Select from dropdown list' },
+  { type: 'short-answer', label: 'Short Answer', icon: <Type className="h-4 w-4" />, description: 'Brief text response' },
+  { type: 'paragraph', label: 'Paragraph', icon: <AlignLeft className="h-4 w-4" />, description: 'Long text response' },
+  { type: 'linear-scale', label: 'Linear Scale', icon: <List className="h-4 w-4" />, description: 'Rating scale (1-5, 1-10)' },
+  { type: 'true-false', label: 'True/False', icon: <ToggleLeft className="h-4 w-4" />, description: 'Binary choice' },
+  { type: 'ranking', label: 'Ranking', icon: <List className="h-4 w-4" />, description: 'Order items by preference' },
+  { type: 'slider', label: 'Slider', icon: <ToggleLeft className="h-4 w-4" />, description: 'Continuous scale' },
+  { type: 'number', label: 'Number', icon: <Hash className="h-4 w-4" />, description: 'Numeric input' },
+  { type: 'date', label: 'Date', icon: <Calendar className="h-4 w-4" />, description: 'Date picker' },
+  { type: 'time', label: 'Time', icon: <Clock className="h-4 w-4" />, description: 'Time picker' },
+  { type: 'email', label: 'Email', icon: <Type className="h-4 w-4" />, description: 'Email address' },
+  { type: 'url', label: 'URL', icon: <Type className="h-4 w-4" />, description: 'Website URL' },
+  { type: 'file-upload', label: 'File Upload', icon: <Upload className="h-4 w-4" />, description: 'Upload documents/images' }
+];
 
 const defaultQuestion: Omit<Question, 'id'> = {
   type: 'multiple-choice',
@@ -70,47 +179,74 @@ const defaultQuestion: Omit<Question, 'id'> = {
   required: false,
   points: 1,
   options: [
-    { id: '1', text: 'Option A', isCorrect: true },
-    { id: '2', text: 'Option B', isCorrect: false },
-    { id: '3', text: 'Option C', isCorrect: false },
-    { id: '4', text: 'Option D', isCorrect: false }
+    { id: '1', text: 'Option 1', isCorrect: true },
+    { id: '2', text: 'Option 2', isCorrect: false },
+    { id: '3', text: 'Option 3', isCorrect: false },
+    { id: '4', text: 'Option 4', isCorrect: false }
   ],
   settings: {
     shuffleOptions: false,
-    showPoints: true
+    allowOther: false,
+    multipleCorrect: false,
+    showPoints: true,
+    partialCredit: false
   },
   metadata: {
     difficulty: 'medium',
     category: 'General',
+    tags: [],
     createdAt: new Date(),
     updatedAt: new Date()
   }
 };
 
-export const QuestionBuilder: React.FC = () => {
+export const QuestionBuilderUpdated: React.FC = () => {
   const [examForm, setExamForm] = useState<ExamForm>({
     id: '',
     title: 'Untitled Exam',
     description: '',
     questions: [],
     settings: {
+      shuffleQuestions: false,
+      showProgressBar: true,
+      allowBackNavigation: true,
+      showQuestionNumbers: true,
+      oneQuestionPerPage: false,
       passingScore: 70,
       maxAttempts: 3,
       showCorrectAnswers: true,
-      showScoreImmediately: true
+      showScoreImmediately: true,
+      collectEmail: false,
+      requireSignIn: false,
+      allowAnonymous: true
+    },
+    styling: {
+      theme: 'light',
+      primaryColor: '#2563eb',
+      backgroundColor: '#ffffff',
+      fontFamily: 'Inter'
+    },
+    access: {
+      isPublic: true
+    },
+    notifications: {
+      sendConfirmation: false
     }
   });
 
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
+  const [showQuestionTypes, setShowQuestionTypes] = useState(false);
+  const [draggedQuestion, setDraggedQuestion] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [showImportHelp, setShowImportHelp] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Add new question
-  const addQuestion = () => {
+  const addQuestion = (type: QuestionType = 'multiple-choice') => {
     const newQuestion: Question = {
       ...defaultQuestion,
       id: `q_${Date.now()}`,
+      type,
       title: `Question ${examForm.questions.length + 1}`,
       metadata: {
         ...defaultQuestion.metadata,
@@ -124,6 +260,7 @@ export const QuestionBuilder: React.FC = () => {
       questions: [...prev.questions, newQuestion]
     }));
     setSelectedQuestion(newQuestion.id);
+    setShowQuestionTypes(false);
   };
 
   // Update question
@@ -190,6 +327,22 @@ export const QuestionBuilder: React.FC = () => {
     setExamForm(prev => ({ ...prev, questions: newQuestions }));
   };
 
+  // Add option to question
+  const addOption = (questionId: string) => {
+    const question = examForm.questions.find(q => q.id === questionId);
+    if (!question || !question.options) return;
+
+    const newOption: QuestionOption = {
+      id: `opt_${Date.now()}`,
+      text: `Option ${question.options.length + 1}`,
+      isCorrect: false
+    };
+
+    updateQuestion(questionId, {
+      options: [...question.options, newOption]
+    });
+  };
+
   // Update option
   const updateOption = (questionId: string, optionId: string, updates: Partial<QuestionOption>) => {
     const question = examForm.questions.find(q => q.id === questionId);
@@ -202,192 +355,36 @@ export const QuestionBuilder: React.FC = () => {
     updateQuestion(questionId, { options: updatedOptions });
   };
 
+  // Delete option
+  const deleteOption = (questionId: string, optionId: string) => {
+    const question = examForm.questions.find(q => q.id === questionId);
+    if (!question || !question.options || question.options.length <= 2) return;
+
+    const updatedOptions = question.options.filter(opt => opt.id !== optionId);
+    updateQuestion(questionId, { options: updatedOptions });
+  };
+
   // Set correct answer
   const setCorrectAnswer = (questionId: string, optionId: string, isCorrect: boolean) => {
     const question = examForm.questions.find(q => q.id === questionId);
     if (!question || !question.options) return;
 
-    // Single correct answer - uncheck others when one is checked
-    const updatedOptions = question.options.map(opt => ({
-      ...opt,
-      isCorrect: opt.id === optionId ? isCorrect : false
-    }));
-
-    updateQuestion(questionId, { options: updatedOptions });
-  };
-
-  // Import from CSV/Excel with improved parsing
-  const importFromFile = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const fileName = file.name.toLowerCase();
-    const isCSV = fileName.endsWith('.csv');
-
-    if (!isCSV) {
-      alert('Please select a CSV file (.csv)\n\nFor Excel files, please save as CSV first.');
-      return;
+    let updatedOptions;
+    
+    if (question.settings.multipleCorrect) {
+      // Multiple correct answers allowed
+      updatedOptions = question.options.map(opt =>
+        opt.id === optionId ? { ...opt, isCorrect } : opt
+      );
+    } else {
+      // Single correct answer
+      updatedOptions = question.options.map(opt => ({
+        ...opt,
+        isCorrect: opt.id === optionId ? isCorrect : false
+      }));
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result as string;
-        const lines = data.split('\n').filter(line => line.trim());
-        
-        if (lines.length < 2) {
-          alert('File must contain at least a header row and one data row');
-          return;
-        }
-
-        // Parse CSV with proper handling of quoted values
-        const parseCSVLine = (line: string): string[] => {
-          const result: string[] = [];
-          let current = '';
-          let inQuotes = false;
-          
-          for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            
-            if (char === '"') {
-              inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-              result.push(current.trim());
-              current = '';
-            } else {
-              current += char;
-            }
-          }
-          
-          result.push(current.trim());
-          return result;
-        };
-
-        const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/"/g, ''));
-        console.log('📋 CSV Headers:', headers);
-
-        // More flexible column detection
-        const findColumn = (possibleNames: string[]) => {
-          return headers.findIndex(h => possibleNames.some(name => h.includes(name)));
-        };
-
-        const questionCol = findColumn(['question', 'q']);
-        const optionACol = findColumn(['option a', 'a', 'choice a']);
-        const optionBCol = findColumn(['option b', 'b', 'choice b']);
-        const optionCCol = findColumn(['option c', 'c', 'choice c']);
-        const optionDCol = findColumn(['option d', 'd', 'choice d']);
-        const correctCol = findColumn(['correct', 'answer', 'right']);
-        const explanationCol = findColumn(['explanation', 'explain', 'note']);
-
-        if (questionCol === -1 || optionACol === -1 || optionBCol === -1 || correctCol === -1) {
-          alert(`Missing required columns. Found headers: ${headers.join(', ')}\n\nRequired: Question, Option A, Option B, Correct Answer\nOptional: Option C, Option D, Explanation`);
-          return;
-        }
-
-        const importedQuestions: Question[] = [];
-        let skippedRows = 0;
-        
-        for (let i = 1; i < lines.length; i++) {
-          const values = parseCSVLine(lines[i]).map(v => v.replace(/"/g, '').trim());
-          
-          const questionText = values[questionCol];
-          if (!questionText) {
-            skippedRows++;
-            continue;
-          }
-
-          // Parse correct answer (flexible format)
-          let correctAnswerIndex = 0;
-          const correctAnswerValue = values[correctCol]?.toLowerCase();
-          
-          if (correctAnswerValue) {
-            if (correctAnswerValue.includes('a') || correctAnswerValue === '0' || correctAnswerValue === '1') {
-              correctAnswerIndex = 0;
-            } else if (correctAnswerValue.includes('b') || correctAnswerValue === '1' || correctAnswerValue === '2') {
-              correctAnswerIndex = 1;
-            } else if (correctAnswerValue.includes('c') || correctAnswerValue === '2' || correctAnswerValue === '3') {
-              correctAnswerIndex = 2;
-            } else if (correctAnswerValue.includes('d') || correctAnswerValue === '3' || correctAnswerValue === '4') {
-              correctAnswerIndex = 3;
-            }
-          }
-
-          const options: QuestionOption[] = [
-            { id: '1', text: values[optionACol] || 'Option A', isCorrect: correctAnswerIndex === 0 },
-            { id: '2', text: values[optionBCol] || 'Option B', isCorrect: correctAnswerIndex === 1 }
-          ];
-
-          // Add optional C and D options if they exist
-          if (optionCCol !== -1 && values[optionCCol]) {
-            options.push({ id: '3', text: values[optionCCol], isCorrect: correctAnswerIndex === 2 });
-          }
-          if (optionDCol !== -1 && values[optionDCol]) {
-            options.push({ id: '4', text: values[optionDCol], isCorrect: correctAnswerIndex === 3 });
-          }
-
-          const question: Question = {
-            ...defaultQuestion,
-            id: `q_${Date.now()}_${i}`,
-            title: questionText,
-            options,
-            explanation: explanationCol !== -1 ? values[explanationCol] || '' : '',
-            metadata: {
-              ...defaultQuestion.metadata,
-              createdAt: new Date(),
-              updatedAt: new Date()
-            }
-          };
-
-          importedQuestions.push(question);
-        }
-
-        if (importedQuestions.length === 0) {
-          alert('No valid questions found in the file. Please check the format.');
-          return;
-        }
-
-        setExamForm(prev => ({
-          ...prev,
-          questions: [...prev.questions, ...importedQuestions]
-        }));
-
-        alert(`✅ Successfully imported ${importedQuestions.length} questions!${skippedRows > 0 ? `\n⚠️ Skipped ${skippedRows} invalid rows.` : ''}`);
-        console.log('✅ Imported questions:', importedQuestions);
-      } catch (error) {
-        console.error('❌ Import error:', error);
-        alert('Error importing file. Please check the format and try again.');
-      }
-    };
-
-    reader.readAsText(file);
-  };
-
-  // Export to CSV
-  const exportToCSV = () => {
-    const headers = ['Question', 'Option A', 'Option B', 'Option C', 'Option D', 'Correct Answer', 'Explanation'];
-    const rows = examForm.questions.map(q => {
-      const correctIndex = q.options?.findIndex(opt => opt.isCorrect) || 0;
-      const correctLetter = ['A', 'B', 'C', 'D'][correctIndex];
-      
-      return [
-        `"${q.title}"`,
-        `"${q.options?.[0]?.text || ''}"`,
-        `"${q.options?.[1]?.text || ''}"`,
-        `"${q.options?.[2]?.text || ''}"`,
-        `"${q.options?.[3]?.text || ''}"`,
-        correctLetter,
-        `"${q.explanation || ''}"`
-      ].join(',');
-    });
-
-    const csvContent = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${examForm.title.replace(/\s+/g, '_')}_questions.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    updateQuestion(questionId, { options: updatedOptions });
   };
 
   // Save exam to database
@@ -395,6 +392,7 @@ export const QuestionBuilder: React.FC = () => {
     try {
       console.log('💾 Saving exam to database:', exam.title);
 
+      // First, save or update the exam
       const examData = {
         id: exam.id,
         title: exam.title,
@@ -404,6 +402,8 @@ export const QuestionBuilder: React.FC = () => {
         is_published: true,
         is_active: true,
         settings: JSON.stringify(exam.settings),
+        styling: JSON.stringify(exam.styling),
+        access_settings: JSON.stringify(exam.access),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -414,10 +414,22 @@ export const QuestionBuilder: React.FC = () => {
         .select()
         .single();
 
-      if (examError) throw examError;
+      if (examError) {
+        console.error('❌ Error saving exam:', examError);
+        throw examError;
+      }
 
-      // Delete existing questions
-      await supabase.from('questions').delete().eq('exam_id', exam.id);
+      console.log('✅ Exam saved to database:', examResult);
+
+      // Delete existing questions for this exam
+      const { error: deleteError } = await supabase
+        .from('questions')
+        .delete()
+        .eq('exam_id', exam.id);
+
+      if (deleteError) {
+        console.warn('⚠️ Error deleting existing questions:', deleteError);
+      }
 
       // Save questions
       const questionsToSave = exam.questions.map((question, index) => ({
@@ -426,10 +438,12 @@ export const QuestionBuilder: React.FC = () => {
         question_text: question.title,
         question_type: question.type,
         options: JSON.stringify(question.options || []),
-        correct_answer: JSON.stringify(question.options?.find(opt => opt.isCorrect)?.id || ''),
+        correct_answer: JSON.stringify(question.correctAnswer || question.options?.find(opt => opt.isCorrect)?.id || ''),
         points: question.points,
         order_index: index,
         explanation: question.explanation || '',
+        metadata: JSON.stringify(question.metadata),
+        settings: JSON.stringify(question.settings),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }));
@@ -439,10 +453,15 @@ export const QuestionBuilder: React.FC = () => {
           .from('questions')
           .insert(questionsToSave);
 
-        if (questionsError) throw questionsError;
+        if (questionsError) {
+          console.error('❌ Error saving questions:', questionsError);
+          throw questionsError;
+        }
+
+        console.log('✅ Questions saved to database:', questionsToSave.length);
       }
 
-      console.log('🎉 Exam saved successfully!');
+      console.log('🎉 Exam and questions saved successfully!');
     } catch (error) {
       console.error('❌ Database save error:', error);
       throw error;
@@ -464,19 +483,22 @@ export const QuestionBuilder: React.FC = () => {
     // Validate questions
     const invalidQuestions = examForm.questions.filter(q => {
       if (!q.title.trim()) return true;
-      if (!q.options || q.options.length < 2) return true;
-      if (!q.options.some(opt => opt.isCorrect)) return true;
+      if (q.type === 'multiple-choice' || q.type === 'checkboxes') {
+        if (!q.options || q.options.length < 2) return true;
+        if (!q.options.some(opt => opt.isCorrect)) return true;
+      }
       return false;
     });
 
     if (invalidQuestions.length > 0) {
-      alert(`Please fix ${invalidQuestions.length} invalid question(s):\n- Questions must have a title\n- Questions must have at least 2 options\n- Questions must have a correct answer selected`);
+      alert(`Please fix ${invalidQuestions.length} invalid question(s)`);
       return;
     }
 
     setIsSaving(true);
 
     try {
+      // Save to both database and localStorage for compatibility
       const examToSave = {
         ...examForm,
         id: examForm.id || `exam_${Date.now()}`,
@@ -484,7 +506,7 @@ export const QuestionBuilder: React.FC = () => {
         updatedAt: new Date()
       };
 
-      // Save to localStorage for compatibility
+      // Save to localStorage (for backward compatibility)
       const savedExams = JSON.parse(localStorage.getItem('saved-exams') || '[]');
       const existingIndex = savedExams.findIndex((e: any) => e.id === examToSave.id);
       if (existingIndex >= 0) {
@@ -498,13 +520,98 @@ export const QuestionBuilder: React.FC = () => {
       await saveExamToDatabase(examToSave);
       
       setExamForm(prev => ({ ...prev, id: examToSave.id }));
-      alert('✅ Exam saved successfully and is now available on the dashboard!');
+      alert('Exam saved successfully and is now available on the dashboard!');
     } catch (error) {
       console.error('Error saving exam:', error);
-      alert('❌ Error saving exam. Please try again.');
+      alert('Error saving exam. Please try again.');
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Import from CSV
+  const importFromCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const csv = e.target?.result as string;
+        const lines = csv.split('\n').filter(line => line.trim());
+        const headers = lines[0].split(',').map(h => h.trim());
+        
+        if (headers.length < 6) {
+          alert('CSV must have at least 6 columns: Question, Option A, Option B, Option C, Option D, Correct Answer');
+          return;
+        }
+
+        const importedQuestions: Question[] = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+          if (values.length < 6) continue;
+
+          const question: Question = {
+            ...defaultQuestion,
+            id: `q_${Date.now()}_${i}`,
+            title: values[0],
+            options: [
+              { id: '1', text: values[1], isCorrect: parseInt(values[5]) === 0 },
+              { id: '2', text: values[2], isCorrect: parseInt(values[5]) === 1 },
+              { id: '3', text: values[3], isCorrect: parseInt(values[5]) === 2 },
+              { id: '4', text: values[4], isCorrect: parseInt(values[5]) === 3 }
+            ],
+            explanation: values[6] || '',
+            metadata: {
+              ...defaultQuestion.metadata,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
+          };
+
+          importedQuestions.push(question);
+        }
+
+        setExamForm(prev => ({
+          ...prev,
+          questions: [...prev.questions, ...importedQuestions]
+        }));
+
+        alert(`Successfully imported ${importedQuestions.length} questions`);
+      } catch (error) {
+        alert('Error importing CSV file. Please check the format.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Export to CSV
+  const exportToCSV = () => {
+    const headers = ['Question', 'Option A', 'Option B', 'Option C', 'Option D', 'Correct Answer', 'Explanation'];
+    const rows = examForm.questions
+      .filter(q => q.type === 'multiple-choice' && q.options)
+      .map(q => {
+        const correctIndex = q.options!.findIndex(opt => opt.isCorrect);
+        return [
+          `"${q.title}"`,
+          `"${q.options![0]?.text || ''}"`,
+          `"${q.options![1]?.text || ''}"`,
+          `"${q.options![2]?.text || ''}"`,
+          `"${q.options![3]?.text || ''}"`,
+          correctIndex.toString(),
+          `"${q.explanation || ''}"`
+        ].join(',');
+      });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${examForm.title.replace(/\s+/g, '_')}_questions.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const selectedQuestionData = selectedQuestion 
@@ -532,10 +639,10 @@ export const QuestionBuilder: React.FC = () => {
           <div className="flex items-center space-x-3">
             <Button
               variant="outline"
-              onClick={() => setShowImportHelp(!showImportHelp)}
+              onClick={() => setPreviewMode(!previewMode)}
             >
-              <HelpCircle className="h-4 w-4 mr-2" />
-              Import Help
+              <Eye className="h-4 w-4 mr-2" />
+              {previewMode ? 'Edit' : 'Preview'}
             </Button>
             
             <Button
@@ -561,62 +668,11 @@ export const QuestionBuilder: React.FC = () => {
             </Button>
           </div>
         </div>
+        
+        {examForm.description && (
+          <p className="text-gray-600 mt-2">{examForm.description}</p>
+        )}
       </div>
-
-      {/* Import Help Modal */}
-      {showImportHelp && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="max-w-2xl w-full mx-4">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                CSV Import Format Guide
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-semibold text-blue-900 mb-2">Required CSV Format:</h4>
-                <div className="text-sm text-blue-800 font-mono bg-white p-2 rounded">
-                  Question,Option A,Option B,Option C,Option D,Correct Answer,Explanation
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-semibold">Column Details:</h4>
-                <ul className="text-sm space-y-1">
-                  <li><strong>Question:</strong> The question text</li>
-                  <li><strong>Option A-D:</strong> Answer choices (C and D are optional)</li>
-                  <li><strong>Correct Answer:</strong> A, B, C, D or 0, 1, 2, 3</li>
-                  <li><strong>Explanation:</strong> Optional explanation text</li>
-                </ul>
-              </div>
-
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h4 className="font-semibold text-green-900 mb-2">Example Row:</h4>
-                <div className="text-sm text-green-800 font-mono bg-white p-2 rounded">
-                  "What is 2+2?","3","4","5","6","B","The answer is 4"
-                </div>
-              </div>
-
-              <div className="bg-yellow-50 p-4 rounded-lg">
-                <h4 className="font-semibold text-yellow-900 mb-2">Tips:</h4>
-                <ul className="text-sm text-yellow-800 space-y-1">
-                  <li>• Use quotes around text with commas</li>
-                  <li>• Save Excel files as CSV before importing</li>
-                  <li>• Minimum 2 options required per question</li>
-                  <li>• Each question must have one correct answer</li>
-                </ul>
-              </div>
-
-              <div className="flex justify-end">
-                <Button onClick={() => setShowImportHelp(false)}>
-                  Got it!
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       <div className="flex">
         {/* Main Content */}
@@ -647,7 +703,9 @@ export const QuestionBuilder: React.FC = () => {
                 onDelete={() => deleteQuestion(question.id)}
                 onDuplicate={() => duplicateQuestion(question.id)}
                 onMove={(direction) => moveQuestion(question.id, direction)}
+                onAddOption={() => addOption(question.id)}
                 onUpdateOption={(optionId, updates) => updateOption(question.id, optionId, updates)}
+                onDeleteOption={(optionId) => deleteOption(question.id, optionId)}
                 onSetCorrectAnswer={(optionId, isCorrect) => setCorrectAnswer(question.id, optionId, isCorrect)}
                 canMoveUp={index > 0}
                 canMoveDown={index < examForm.questions.length - 1}
@@ -655,14 +713,42 @@ export const QuestionBuilder: React.FC = () => {
             ))}
 
             {/* Add Question Button */}
-            <Button
-              variant="outline"
-              onClick={addQuestion}
-              className="w-full py-8 border-2 border-dashed border-gray-300 hover:border-gray-400"
-            >
-              <Plus className="h-6 w-6 mr-2" />
-              Add Question
-            </Button>
+            <div className="relative">
+              <Button
+                variant="outline"
+                onClick={() => setShowQuestionTypes(!showQuestionTypes)}
+                className="w-full py-8 border-2 border-dashed border-gray-300 hover:border-gray-400"
+              >
+                <Plus className="h-6 w-6 mr-2" />
+                Add Question
+              </Button>
+
+              {/* Question Types Dropdown */}
+              {showQuestionTypes && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-96 overflow-y-auto">
+                  <div className="p-4">
+                    <h3 className="font-medium text-gray-900 mb-3">Choose Question Type</h3>
+                    <div className="grid grid-cols-1 gap-2">
+                      {questionTypes.map((type) => (
+                        <button
+                          key={type.type}
+                          onClick={() => addQuestion(type.type)}
+                          className="flex items-center p-3 text-left hover:bg-gray-50 rounded-lg transition-colors"
+                        >
+                          <div className="flex items-center justify-center w-8 h-8 bg-gray-100 rounded mr-3">
+                            {type.icon}
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900">{type.label}</div>
+                            <div className="text-sm text-gray-500">{type.description}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -677,19 +763,19 @@ export const QuestionBuilder: React.FC = () => {
         )}
       </div>
 
-      {/* Hidden file input */}
+      {/* Hidden file input for CSV import */}
       <input
         ref={fileInputRef}
         type="file"
         accept=".csv"
-        onChange={importFromFile}
+        onChange={importFromCSV}
         className="hidden"
       />
     </div>
   );
 };
 
-// Question Card Component
+// Question Card Component (same as before but with updated props)
 interface QuestionCardProps {
   question: Question;
   index: number;
@@ -699,7 +785,9 @@ interface QuestionCardProps {
   onDelete: () => void;
   onDuplicate: () => void;
   onMove: (direction: 'up' | 'down') => void;
+  onAddOption: () => void;
   onUpdateOption: (optionId: string, updates: Partial<QuestionOption>) => void;
+  onDeleteOption: (optionId: string) => void;
   onSetCorrectAnswer: (optionId: string, isCorrect: boolean) => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
@@ -714,23 +802,45 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
   onDelete,
   onDuplicate,
   onMove,
+  onAddOption,
   onUpdateOption,
+  onDeleteOption,
   onSetCorrectAnswer,
   canMoveUp,
   canMoveDown
 }) => {
+  const [isExpanded, setIsExpanded] = useState(isSelected);
+
+  React.useEffect(() => {
+    setIsExpanded(isSelected);
+  }, [isSelected]);
+
+  const questionTypeInfo = questionTypes.find(t => t.type === question.type);
+
   return (
     <Card 
-      className={`transition-all cursor-pointer ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
+      className={`transition-all ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
       onClick={onSelect}
     >
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <GripVertical className="h-4 w-4 text-gray-400" />
-            <span className="text-sm font-medium text-gray-500">
-              {index + 1}.
-            </span>
+            <div className="flex items-center space-x-2">
+              <GripVertical className="h-4 w-4 text-gray-400 cursor-move" />
+              <span className="text-sm font-medium text-gray-500">
+                {index + 1}.
+              </span>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              {questionTypeInfo?.icon}
+              <span className="text-sm text-gray-600">{questionTypeInfo?.label}</span>
+            </div>
+            
+            {question.required && (
+              <Star className="h-4 w-4 text-red-500" />
+            )}
+            
             <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
               {question.points} pt{question.points !== 1 ? 's' : ''}
             </span>
@@ -783,7 +893,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
           <textarea
             value={question.title}
             onChange={(e) => onUpdate({ title: e.target.value })}
-            placeholder="Enter your question here..."
+            placeholder="Question title"
             className="w-full text-lg font-medium bg-transparent border-none outline-none resize-none focus:bg-gray-50 p-2 rounded"
             rows={2}
             onClick={(e) => e.stopPropagation()}
@@ -791,7 +901,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
         </div>
 
         {/* Question Options */}
-        {question.options && (
+        {(question.type === 'multiple-choice' || question.type === 'checkboxes' || question.type === 'dropdown') && question.options && (
           <div className="space-y-3">
             {question.options.map((option, optIndex) => (
               <div key={option.id} className="flex items-center space-x-3">
@@ -806,21 +916,76 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
                       : 'border-gray-300 hover:border-gray-400'
                   }`}
                 >
-                  {option.isCorrect && <Circle className="h-3 w-3 fill-current" />}
+                  {option.isCorrect && (
+                    question.type === 'checkboxes' ? (
+                      <CheckSquare className="h-3 w-3" />
+                    ) : (
+                      <Circle className="h-3 w-3 fill-current" />
+                    )
+                  )}
                 </button>
-                
-                <span className="text-sm font-medium text-gray-500 w-8">
-                  {String.fromCharCode(65 + optIndex)}:
-                </span>
                 
                 <input
                   type="text"
                   value={option.text}
                   onChange={(e) => onUpdateOption(option.id, { text: e.target.value })}
-                  placeholder={`Option ${String.fromCharCode(65 + optIndex)}`}
+                  placeholder={`Option ${optIndex + 1}`}
                   className="flex-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   onClick={(e) => e.stopPropagation()}
                 />
+                
+                {question.options!.length > 2 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteOption(option.id);
+                    }}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddOption();
+              }}
+              className="mt-2"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Option
+            </Button>
+          </div>
+        )}
+
+        {/* True/False Options */}
+        {question.type === 'true-false' && (
+          <div className="space-y-3">
+            {['True', 'False'].map((option, index) => (
+              <div key={option} className="flex items-center space-x-3">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdate({ correctAnswer: index });
+                  }}
+                  className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                    question.correctAnswer === index
+                      ? 'bg-green-500 border-green-500 text-white' 
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  {question.correctAnswer === index && (
+                    <Circle className="h-3 w-3 fill-current" />
+                  )}
+                </button>
+                <span className="text-gray-700">{option}</span>
               </div>
             ))}
           </div>
@@ -832,9 +997,9 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
             <textarea
               value={question.explanation}
               onChange={(e) => onUpdate({ explanation: e.target.value })}
-              placeholder="Explanation (optional - shown after answering)"
+              placeholder="Explanation (shown after answering)"
               className="w-full text-sm text-gray-600 bg-gray-50 border border-gray-300 rounded p-3 resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              rows={2}
+              rows={3}
               onClick={(e) => e.stopPropagation()}
             />
           </div>
@@ -844,7 +1009,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
   );
 };
 
-// Question Settings Component
+// Question Settings Component (same as before)
 interface QuestionSettingsProps {
   question: Question;
   onUpdate: (updates: Partial<Question>) => void;
@@ -857,7 +1022,18 @@ const QuestionSettings: React.FC<QuestionSettingsProps> = ({ question, onUpdate 
         <h3 className="text-lg font-medium text-gray-900 mb-4">Question Settings</h3>
       </div>
 
+      {/* Basic Settings */}
       <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-gray-700">Required</label>
+          <input
+            type="checkbox"
+            checked={question.required}
+            onChange={(e) => onUpdate({ required: e.target.checked })}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Points</label>
           <input
@@ -900,37 +1076,7 @@ const QuestionSettings: React.FC<QuestionSettingsProps> = ({ question, onUpdate 
               } 
             })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g., Healthcare, Safety"
-          />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-gray-700">Shuffle Options</label>
-          <input
-            type="checkbox"
-            checked={question.settings.shuffleOptions}
-            onChange={(e) => onUpdate({ 
-              settings: { 
-                ...question.settings, 
-                shuffleOptions: e.target.checked 
-              } 
-            })}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-gray-700">Show Points</label>
-          <input
-            type="checkbox"
-            checked={question.settings.showPoints}
-            onChange={(e) => onUpdate({ 
-              settings: { 
-                ...question.settings, 
-                showPoints: e.target.checked 
-              } 
-            })}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            placeholder="e.g., Math, Science"
           />
         </div>
       </div>
@@ -938,4 +1084,4 @@ const QuestionSettings: React.FC<QuestionSettingsProps> = ({ question, onUpdate 
   );
 };
 
-export default QuestionBuilder;
+export default QuestionBuilderUpdated;

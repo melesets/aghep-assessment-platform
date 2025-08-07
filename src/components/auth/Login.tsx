@@ -6,8 +6,8 @@ import { Input } from '../ui/Input';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const [email, setEmail] = useState('admin@admin.com');
-  const [password, setPassword] = useState('Password');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -17,7 +17,33 @@ export const Login: React.FC = () => {
     setError('');
     
     try {
-      console.log('Attempting direct Supabase login with:', email);
+      // Check for hardcoded user credentials first
+      if (email === 'aghqu' && password === 'agh123') {
+        console.log('Hardcoded user login successful:', email);
+        
+        // Create a mock user session for the regular user
+        const mockUser = {
+          id: 'hardcoded-user-id',
+          email: 'aghqu@aghep.com',
+          name: 'AGHEP User',
+          role: 'professional',
+          department: 'Healthcare',
+          position: 'Healthcare Professional',
+          licenseNumber: 'AGH-2024-001',
+          hospitalId: 'AGHEP-USER-001'
+        };
+        
+        // Store user data in localStorage for the auth system
+        localStorage.setItem('auth-user', JSON.stringify(mockUser));
+        localStorage.setItem('auth-token', 'hardcoded-token-' + Date.now());
+        
+        // Force page reload to trigger auth state change
+        window.location.reload();
+        return;
+      }
+      
+      // If not hardcoded credentials, try Supabase authentication (for admin and other accounts)
+      console.log('Attempting Supabase login with:', email);
       
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
@@ -25,20 +51,20 @@ export const Login: React.FC = () => {
       });
       
       if (authError) {
-        console.error('Direct auth error:', authError);
+        console.error('Supabase auth error:', authError);
         setError(`Login failed: ${authError.message}`);
         return;
       }
       
       if (data.user) {
-        console.log('Direct login successful:', data.user);
+        console.log('Supabase login successful:', data.user);
         console.log('User role:', data.user.user_metadata?.role);
         
         // Force page reload to trigger auth state change
         window.location.reload();
       }
     } catch (error) {
-      console.error('Direct login error:', error);
+      console.error('Login error:', error);
       setError('An unexpected error occurred during login.');
     } finally {
       setIsLoading(false);
@@ -66,13 +92,13 @@ export const Login: React.FC = () => {
             <div className="relative">
               <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
-                type="email"
-                placeholder="Enter your email"
+                type="text"
+                placeholder="Enter username or email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="pl-10"
                 required
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
 
@@ -99,13 +125,16 @@ export const Login: React.FC = () => {
             <Button type="submit" className="w-full" loading={isLoading}>
               Sign In
             </Button>
-          </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-xs text-gray-500">
-              Admin credentials: admin@admin.com / Password
-            </p>
-          </div>
+            {/* Login hints */}
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs text-blue-800 font-medium mb-2">Available Accounts:</p>
+              <div className="text-xs text-blue-700 space-y-1">
+                <div>• <strong>Admin:</strong> admin@admin.com / Password</div>
+                <div>• <strong>User:</strong> aghqu / agh123</div>
+              </div>
+            </div>
+          </form>
         </CardContent>
       </Card>
     </div>

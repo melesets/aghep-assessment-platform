@@ -4,6 +4,17 @@ import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { CheckCircle, XCircle, Award, Home } from 'lucide-react';
 
+interface UserInfo {
+  fullName: string;
+  email: string;
+  phone: string;
+  department: string;
+  position: string;
+  licenseNumber?: string;
+  hospitalId: string;
+  organization: string;
+}
+
 interface ExamResult {
   examId: string;
   examTitle: string;
@@ -13,6 +24,7 @@ interface ExamResult {
   percentage: number;
   passed: boolean;
   completedAt: string;
+  userInfo?: UserInfo;
 }
 
 export const ExamResults: React.FC = () => {
@@ -63,22 +75,31 @@ export const ExamResults: React.FC = () => {
     if (!result || !result.passed) return;
 
     const certificateId = Date.now().toString();
+    const userInfo = result.userInfo;
+    
     const certificate = {
       id: certificateId,
       examTitle: result.examTitle,
-      studentName: 'Student Name', // In real app, get from auth
+      studentName: userInfo?.fullName || 'Student Name',
       score: result.percentage,
       completedAt: result.completedAt,
-      certificateNumber: `CERT-${certificateId.slice(-6)}`
+      certificateNumber: `CERT-${certificateId.slice(-6)}`,
+      // Include additional user information for certificate
+      studentEmail: userInfo?.email,
+      studentDepartment: userInfo?.department,
+      studentPosition: userInfo?.position,
+      studentOrganization: userInfo?.organization,
+      studentLicenseNumber: userInfo?.licenseNumber,
+      studentHospitalId: userInfo?.hospitalId
     };
 
     localStorage.setItem(`certificate-${certificateId}`, JSON.stringify(certificate));
     
-    // Save assessment record
+    // Save assessment record with user information
     const assessmentRecord = {
       id: Date.now().toString(),
-      studentName: 'Student Name',
-      studentId: 'STU' + Math.random().toString().slice(-3),
+      studentName: userInfo?.fullName || 'Student Name',
+      studentId: userInfo?.hospitalId || 'STU' + Math.random().toString().slice(-3),
       examTitle: result.examTitle,
       examType: 'theory' as const,
       score: result.percentage,
@@ -86,7 +107,12 @@ export const ExamResults: React.FC = () => {
       status: result.passed ? 'passed' as const : 'failed' as const,
       completedAt: new Date(result.completedAt),
       duration: 30, // Default duration
-      attempts: 1
+      attempts: 1,
+      // Additional user information
+      studentEmail: userInfo?.email,
+      studentDepartment: userInfo?.department,
+      studentPosition: userInfo?.position,
+      studentOrganization: userInfo?.organization
     };
 
     const existingRecords = JSON.parse(localStorage.getItem('assessment-records') || '[]');

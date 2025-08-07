@@ -68,7 +68,7 @@ export const SimpleLogin: React.FC = () => {
               <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
                 type="email"
-                placeholder="admin@admin.com"
+                placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="pl-10"
@@ -81,7 +81,7 @@ export const SimpleLogin: React.FC = () => {
               <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
                 type="password"
-                placeholder="Password"
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-10"
@@ -107,14 +107,6 @@ export const SimpleLogin: React.FC = () => {
               Sign In
             </Button>
           </form>
-
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-xs text-blue-700">
-              <strong>Test Credentials:</strong><br/>
-              Email: admin@admin.com<br/>
-              Password: Password
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>

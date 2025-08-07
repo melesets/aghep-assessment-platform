@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { Clock, BookOpen, Award, Settings, BarChart3, Stethoscope } from 'lucide-react';
+import { Clock, BookOpen, Award, Settings, BarChart3, Stethoscope, Database, HardDrive } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabase';
 
@@ -14,23 +14,24 @@ interface Exam {
   totalQuestions: number;
   passingScore: number;
   questions?: any[];
+  source?: 'database' | 'localStorage';
 }
 
-export const ExamList: React.FC = () => {
+export const ExamListUpdated: React.FC = () => {
   const navigate = useNavigate();
   const { auth } = useAuth();
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadExamsFromDatabase();
+    loadExamsFromAllSources();
   }, []);
 
-  const loadExamsFromDatabase = async () => {
+  const loadExamsFromAllSources = async () => {
     try {
-      console.log('🔍 Loading exams from Supabase...');
+      console.log('🔍 Loading exams from multiple sources...');
       
-      // Get exams with question count
+      // Load from Supabase database
       const { data: examsData, error: examsError } = await supabase
         .from('exams')
         .select(`
@@ -46,25 +47,48 @@ export const ExamList: React.FC = () => {
         .eq('is_published', true)
         .eq('is_active', true);
 
+      let databaseExams: Exam[] = [];
+      
       if (examsError) {
-        console.error('❌ Error loading exams:', examsError);
-        setLoading(false);
-        return;
-      }
-
-      if (examsData) {
-        const formattedExams: Exam[] = examsData.map((exam: any) => ({
+        console.error('❌ Error loading exams from database:', examsError);
+      } else if (examsData) {
+        databaseExams = examsData.map((exam: any) => ({
           id: exam.id,
           title: exam.title,
           description: exam.description || 'Professional assessment exam',
           duration: exam.duration,
           totalQuestions: exam.questions?.length || 0,
-          passingScore: exam.passing_score
+          passingScore: exam.passing_score,
+          source: 'database' as const
         }));
-
-        console.log('✅ Loaded exams from database:', formattedExams.length);
-        setExams(formattedExams);
+        console.log('✅ Loaded exams from database:', databaseExams.length);
       }
+
+      // Load from localStorage (for backward compatibility and QuestionBuilder saves)
+      const savedExams = JSON.parse(localStorage.getItem('saved-exams') || '[]');
+      const localStorageExams: Exam[] = savedExams.map((exam: any) => ({
+        id: exam.id,
+        title: exam.title,
+        description: exam.description || 'Professional assessment exam',
+        duration: exam.settings?.timeLimit || 60,
+        totalQuestions: exam.questions?.length || 0,
+        passingScore: exam.settings?.passingScore || 70,
+        questions: exam.questions,
+        source: 'localStorage' as const
+      }));
+
+      console.log('✅ Loaded exams from localStorage:', localStorageExams.length);
+
+      // Combine both sources, avoiding duplicates (database takes priority)
+      const allExams = [...databaseExams];
+      localStorageExams.forEach(localExam => {
+        if (!allExams.find(dbExam => dbExam.id === localExam.id)) {
+          allExams.push(localExam);
+        }
+      });
+
+      console.log('✅ Total exams loaded:', allExams.length);
+      setExams(allExams);
     } catch (error) {
       console.error('❌ Error loading exams:', error);
     } finally {
@@ -79,7 +103,7 @@ export const ExamList: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading exams from database...</p>
+          <p className="text-gray-600">Loading exams from all sources...</p>
         </div>
       </div>
     );
@@ -101,8 +125,6 @@ export const ExamList: React.FC = () => {
               <span>Powered by HSQD</span>
               <span>•</span>
               <span>Health Sector Quality Directorate</span>
-              <span>•</span>
-
             </div>
           </div>
 
@@ -169,8 +191,8 @@ export const ExamList: React.FC = () => {
           <div className="mb-16">
             <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">
               Available Exams
-              <span className="block text-sm font-normal text-green-600 mt-2">
-                📊 Loaded from Supabase Database
+              <span className="block text-sm font-normal text-gray-600 mt-2">
+                📊 Loaded from Database & Question Builder
               </span>
             </h2>
             
@@ -180,11 +202,16 @@ export const ExamList: React.FC = () => {
                   <BookOpen className="h-8 w-8 text-gray-400" />
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No Exams Available</h3>
-                <p className="text-gray-600 mb-4">No published exams found in the database.</p>
+                <p className="text-gray-600 mb-4">No published exams found.</p>
                 {isAdmin && (
-                  <Button onClick={() => navigate('/admin')}>
-                    Create First Exam
-                  </Button>
+                  <div className="space-y-2">
+                    <Button onClick={() => navigate('/admin/question-builder')}>
+                      Create Exam with Question Builder
+                    </Button>
+                    <div className="text-sm text-gray-500">
+                      or use the <button onClick={() => navigate('/admin')} className="text-blue-600 hover:underline">Admin Panel</button>
+                    </div>
+                  </div>
                 )}
               </div>
             ) : (
@@ -200,8 +227,22 @@ export const ExamList: React.FC = () => {
                           <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
                             {exam.duration} min
                           </span>
-                          <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
-                            DB
+                          <span className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 ${
+                            exam.source === 'database' 
+                              ? 'text-green-600 bg-green-50' 
+                              : 'text-blue-600 bg-blue-50'
+                          }`}>
+                            {exam.source === 'database' ? (
+                              <>
+                                <Database className="h-3 w-3" />
+                                DB
+                              </>
+                            ) : (
+                              <>
+                                <HardDrive className="h-3 w-3" />
+                                QB
+                              </>
+                            )}
                           </span>
                         </div>
                       </div>
@@ -226,8 +267,26 @@ export const ExamList: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Source Legend */}
+          {exams.length > 0 && (
+            <div className="text-center">
+              <div className="inline-flex items-center gap-6 text-xs text-gray-500 bg-gray-50 px-4 py-2 rounded-lg">
+                <div className="flex items-center gap-1">
+                  <Database className="h-3 w-3 text-green-600" />
+                  <span>DB = Database Exam</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <HardDrive className="h-3 w-3 text-blue-600" />
+                  <span>QB = Question Builder Exam</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
+
+export default ExamListUpdated;

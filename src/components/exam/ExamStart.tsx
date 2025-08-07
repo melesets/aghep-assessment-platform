@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { UserInfoForm } from './UserInfoForm';
+import { ExamTaking } from './ExamTaking';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { Clock, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Clock, Users, Award, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface UserInfo {
@@ -16,19 +18,13 @@ interface UserInfo {
   organization: string;
 }
 
-interface Question {
-  id: string;
-  question: string;
-  options: string[];
-  correctAnswer: number;
-}
-
 interface ExamData {
   id: string;
   title: string;
   duration: number;
-  questions: Question[];
+  questions: any[];
   passingScore: number;
+  description?: string;
 }
 
 const mockExamData: Record<string, ExamData> = {
@@ -37,6 +33,7 @@ const mockExamData: Record<string, ExamData> = {
     title: 'Basic Life Support (BLS)',
     duration: 30,
     passingScore: 80,
+    description: 'Essential life-saving techniques including CPR, AED usage, and emergency response protocols.',
     questions: [
       {
         id: '1',
@@ -75,6 +72,7 @@ const mockExamData: Record<string, ExamData> = {
     title: 'First Aid Certification',
     duration: 25,
     passingScore: 75,
+    description: 'Comprehensive first aid training covering wound care, burns, fractures, and emergency medical situations.',
     questions: [
       {
         id: '1',
@@ -101,6 +99,7 @@ const mockExamData: Record<string, ExamData> = {
     title: 'Fire Safety Training',
     duration: 20,
     passingScore: 70,
+    description: 'Fire prevention, evacuation procedures, and proper use of fire safety equipment.',
     questions: [
       {
         id: '1',
@@ -118,18 +117,12 @@ const mockExamData: Record<string, ExamData> = {
   }
 };
 
-interface ExamTakingProps {
-  userInfo?: UserInfo;
-}
-
-export const ExamTaking: React.FC<ExamTakingProps> = ({ userInfo }) => {
+export const ExamStart: React.FC = () => {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
   const [examData, setExamData] = useState<ExamData | null>(null);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [timeRemaining, setTimeRemaining] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [showUserForm, setShowUserForm] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -139,7 +132,7 @@ export const ExamTaking: React.FC<ExamTakingProps> = ({ userInfo }) => {
         return;
       }
 
-      console.log('🔍 Loading exam:', examId);
+      console.log('🔍 Loading exam for start page:', examId);
 
       // First try to load from database
       try {
@@ -172,6 +165,7 @@ export const ExamTaking: React.FC<ExamTakingProps> = ({ userInfo }) => {
           const formattedExam: ExamData = {
             id: examData.id,
             title: examData.title,
+            description: examData.description || 'Professional assessment exam',
             duration: examData.duration,
             passingScore: examData.passing_score,
             questions: examData.questions
@@ -188,7 +182,6 @@ export const ExamTaking: React.FC<ExamTakingProps> = ({ userInfo }) => {
           };
 
           setExamData(formattedExam);
-          setTimeRemaining(formattedExam.duration * 60);
           console.log('✅ Loaded exam from database:', formattedExam.title);
           setLoading(false);
           return;
@@ -205,6 +198,7 @@ export const ExamTaking: React.FC<ExamTakingProps> = ({ userInfo }) => {
         const formattedExam: ExamData = {
           id: localExam.id,
           title: localExam.title,
+          description: localExam.description || 'Professional assessment exam',
           duration: localExam.settings?.timeLimit || 60,
           passingScore: localExam.settings?.passingScore || 70,
           questions: localExam.questions.map((q: any) => ({
@@ -216,7 +210,6 @@ export const ExamTaking: React.FC<ExamTakingProps> = ({ userInfo }) => {
         };
 
         setExamData(formattedExam);
-        setTimeRemaining(formattedExam.duration * 60);
         console.log('✅ Loaded exam from localStorage:', formattedExam.title);
         setLoading(false);
         return;
@@ -226,7 +219,6 @@ export const ExamTaking: React.FC<ExamTakingProps> = ({ userInfo }) => {
       const mockExam = mockExamData[examId];
       if (mockExam) {
         setExamData(mockExam);
-        setTimeRemaining(mockExam.duration * 60);
         console.log('✅ Loaded mock exam:', mockExam.title);
         setLoading(false);
         return;
@@ -241,61 +233,21 @@ export const ExamTaking: React.FC<ExamTakingProps> = ({ userInfo }) => {
     loadExam();
   }, [examId, navigate]);
 
-  useEffect(() => {
-    if (timeRemaining > 0) {
-      const timer = setTimeout(() => {
-        setTimeRemaining(prev => prev - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else if (timeRemaining === 0 && examData) {
-      handleSubmitExam();
-    }
-  }, [timeRemaining, examData]);
-
-  const handleAnswerChange = (questionId: string, answer: number) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: answer
-    }));
+  const handleStartExam = () => {
+    setShowUserForm(true);
   };
 
-  const handleSubmitExam = async () => {
-    if (!examData) return;
-
-    setIsSubmitting(true);
-    
-    // Calculate score
-    let correctAnswers = 0;
-    examData.questions.forEach(question => {
-      if (answers[question.id] === question.correctAnswer) {
-        correctAnswers++;
-      }
-    });
-
-    const percentage = Math.round((correctAnswers / examData.questions.length) * 100);
-    const passed = percentage >= examData.passingScore;
-
-    // Store results and navigate
-    const resultId = Date.now().toString();
-    localStorage.setItem(`exam-result-${resultId}`, JSON.stringify({
-      examId: examData.id,
-      examTitle: examData.title,
-      answers,
-      correctAnswers,
-      totalQuestions: examData.questions.length,
-      percentage,
-      passed,
-      completedAt: new Date().toISOString(),
-      userInfo: userInfo // Store user information with results
-    }));
-
-    navigate(`/results/${resultId}`);
+  const handleUserInfoSubmit = (info: UserInfo) => {
+    setUserInfo(info);
+    setShowUserForm(false);
   };
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  const handleCancelUserForm = () => {
+    setShowUserForm(false);
+  };
+
+  const handleBackToExamList = () => {
+    navigate('/');
   };
 
   if (loading) {
@@ -314,100 +266,121 @@ export const ExamTaking: React.FC<ExamTakingProps> = ({ userInfo }) => {
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold text-gray-900 mb-2">Exam not found</h2>
         <p className="text-gray-600 mb-4">The exam you're looking for could not be found.</p>
-        <Button onClick={() => navigate('/')}>
-          Back to Exams
-        </Button>
+        <Button onClick={handleBackToExamList}>Back to Exams</Button>
       </div>
     );
   }
 
-  const currentQuestion = examData.questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / examData.questions.length) * 100;
+  // If user info is collected and form is not showing, start the exam
+  if (userInfo && !showUserForm) {
+    return <ExamTaking userInfo={userInfo} />;
+  }
 
+  // Show user info form
+  if (showUserForm) {
+    return (
+      <UserInfoForm
+        examTitle={examData.title}
+        onSubmit={handleUserInfoSubmit}
+        onCancel={handleCancelUserForm}
+      />
+    );
+  }
+
+  // Show exam overview and start button
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{examData.title}</h1>
-          <p className="text-gray-600">
-            Question {currentQuestionIndex + 1} of {examData.questions.length}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-lg font-mono">
-          <Clock className="h-5 w-5" />
-          <span className={timeRemaining < 300 ? 'text-red-600' : 'text-gray-900'}>
-            {formatTime(timeRemaining)}
-          </span>
-        </div>
+      <div className="text-center">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">{examData.title}</h1>
+        <p className="text-gray-600 text-lg">Assessment Overview</p>
       </div>
 
-      {/* Progress Bar */}
-      <div className="w-full bg-gray-200 rounded-full h-2">
-        <div 
-          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-          style={{ width: `${progress}%` }}
-        ></div>
-      </div>
-
-      {/* Question */}
+      {/* Exam Details */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">
-            Question {currentQuestionIndex + 1}
+          <CardTitle className="flex items-center gap-2">
+            <Award className="h-5 w-5 text-blue-600" />
+            Exam Information
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-lg">{currentQuestion.question}</p>
+          {examData.description && (
+            <p className="text-gray-700">{examData.description}</p>
+          )}
 
-          <div className="space-y-3">
-            {currentQuestion.options.map((option, index) => (
-              <label key={index} className="flex items-center space-x-3 cursor-pointer p-3 rounded-lg hover:bg-gray-50 border">
-                <input
-                  type="radio"
-                  name={`question-${currentQuestion.id}`}
-                  value={index}
-                  checked={answers[currentQuestion.id] === index}
-                  onChange={() => handleAnswerChange(currentQuestion.id, index)}
-                  className="h-4 w-4 text-blue-600"
-                />
-                <span>{option}</span>
-              </label>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
+              <Clock className="h-6 w-6 text-blue-600" />
+              <div>
+                <div className="font-semibold text-gray-900">{examData.duration} minutes</div>
+                <div className="text-sm text-gray-600">Duration</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg">
+              <Users className="h-6 w-6 text-green-600" />
+              <div>
+                <div className="font-semibold text-gray-900">{examData.questions.length} questions</div>
+                <div className="text-sm text-gray-600">Total Questions</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-lg">
+              <CheckCircle className="h-6 w-6 text-purple-600" />
+              <div>
+                <div className="font-semibold text-gray-900">{examData.passingScore}%</div>
+                <div className="text-sm text-gray-600">Passing Score</div>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between">
-        <Button
-          variant="outline"
-          onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
-          disabled={currentQuestionIndex === 0}
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Previous
+      {/* Instructions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-orange-600" />
+            Important Instructions
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3 text-sm text-gray-700">
+            <div className="flex items-start gap-2">
+              <span className="font-semibold text-blue-600 mt-0.5">1.</span>
+              <span>You will need to provide your personal information before starting the exam for certificate generation.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-semibold text-blue-600 mt-0.5">2.</span>
+              <span>Once you start the exam, the timer will begin and cannot be paused.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-semibold text-blue-600 mt-0.5">3.</span>
+              <span>You must achieve at least {examData.passingScore}% to pass and receive a certificate.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-semibold text-blue-600 mt-0.5">4.</span>
+              <span>Make sure you have a stable internet connection throughout the exam.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-semibold text-blue-600 mt-0.5">5.</span>
+              <span>Your answers are automatically saved as you progress through the exam.</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Action Buttons */}
+      <div className="flex gap-4">
+        <Button onClick={handleBackToExamList} variant="outline" className="flex-1">
+          Back to Exams
         </Button>
-
-        <div className="text-sm text-gray-600">
-          {Object.keys(answers).length} of {examData.questions.length} answered
-        </div>
-
-        {currentQuestionIndex === examData.questions.length - 1 ? (
-          <Button onClick={handleSubmitExam} loading={isSubmitting}>
-            Submit Exam
-          </Button>
-        ) : (
-          <Button
-            onClick={() => setCurrentQuestionIndex(prev => Math.min(examData.questions.length - 1, prev + 1))}
-          >
-            Next
-            <ArrowRight className="h-4 w-4 ml-2" />
-          </Button>
-        )}
+        <Button onClick={handleStartExam} className="flex-1">
+          Start Exam
+        </Button>
       </div>
     </div>
   );
 };
 
-export default ExamTaking;
+export default ExamStart;

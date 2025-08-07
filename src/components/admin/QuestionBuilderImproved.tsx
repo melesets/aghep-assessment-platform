@@ -87,7 +87,7 @@ const defaultQuestion: Omit<Question, 'id'> = {
   }
 };
 
-export const QuestionBuilder: React.FC = () => {
+export const QuestionBuilderImproved: React.FC = () => {
   const [examForm, setExamForm] = useState<ExamForm>({
     id: '',
     title: 'Untitled Exam',
@@ -938,4 +938,4 @@ const QuestionSettings: React.FC<QuestionSettingsProps> = ({ question, onUpdate 
   );
 };
 
-export default QuestionBuilder;
+export default QuestionBuilderImproved;

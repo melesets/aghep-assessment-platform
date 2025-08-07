@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { User, AuthState, RegisterData } from '../types/auth';
 import { supabase } from '../lib/supabase';
+import { logService } from '../services/logService';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 const AuthContext = createContext<{
@@ -28,9 +29,39 @@ export const useAuthState = () => {
   });
 
   useEffect(() => {
+    // Check for hardcoded user session first
+    const checkHardcodedSession = () => {
+      const storedUser = localStorage.getItem('auth-user');
+      const storedToken = localStorage.getItem('auth-token');
+      
+      if (storedUser && storedToken) {
+        try {
+          const user = JSON.parse(storedUser);
+          console.log('✅ Hardcoded user session found:', user);
+          
+          setAuth({
+            user,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+          return true;
+        } catch (error) {
+          console.error('Error parsing hardcoded user session:', error);
+          localStorage.removeItem('auth-user');
+          localStorage.removeItem('auth-token');
+        }
+      }
+      return false;
+    };
+
     // Check for existing Supabase session
     const checkSession = async () => {
       try {
+        // First check for hardcoded session
+        if (checkHardcodedSession()) {
+          return;
+        }
+
         const { data: { session }, error } = await supabase.auth.getSession();
         if (session?.user && !error) {
           loadUserProfile(session.user);
@@ -115,12 +146,25 @@ export const useAuthState = () => {
       if (data.user) {
         console.log('Login successful, loading profile...');
         loadUserProfile(data.user);
+        
+        // Log successful login
+        logService.trackUserSession(
+          data.user.id,
+          data.user.email || '',
+          data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User',
+          'login'
+        );
+        
         return true;
       }
       
       return false;
     } catch (error) {
       console.error('Login failed:', error);
+      
+      // Log failed login attempt
+      logService.trackFailedLogin(email, error instanceof Error ? error.message : 'Unknown error');
+      
       return false;
     }
   };
@@ -149,18 +193,56 @@ export const useAuthState = () => {
 
       if (authData.user) {
         console.log('Registration successful');
+        
+        // Log user registration
+        logService.logUserManagement(
+          'USER_REGISTERED',
+          `New user registered: ${data.name} (${data.email})`,
+          'medium',
+          authData.user.id,
+          data.email,
+          data.name
+        );
+        
         return true;
       }
       
       return false;
     } catch (error) {
       console.error('Registration failed:', error);
+      
+      // Log failed registration
+      logService.logSecurity(
+        'REGISTRATION_FAILED',
+        `Failed registration attempt for ${data.email}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'medium',
+        'unknown',
+        data.email,
+        data.name
+      );
+      
       return false;
     }
   };
 
   const logout = async () => {
+    const currentUser = auth.user;
+    
     try {
+      // Log logout before clearing auth state
+      if (currentUser) {
+        logService.trackUserSession(
+          currentUser.id,
+          currentUser.email,
+          currentUser.name,
+          'logout'
+        );
+      }
+      
+      // Clear hardcoded session if it exists
+      localStorage.removeItem('auth-user');
+      localStorage.removeItem('auth-token');
+      
       await supabase.auth.signOut();
       setAuth({
         user: null,
@@ -169,6 +251,19 @@ export const useAuthState = () => {
       });
     } catch (error) {
       console.error('Logout failed:', error);
+      
+      // Log logout error
+      if (currentUser) {
+        logService.logSystem(
+          'LOGOUT_ERROR',
+          `Logout failed for user ${currentUser.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          'medium',
+          currentUser.id,
+          currentUser.email,
+          currentUser.name
+        );
+      }
+      
       // Clear auth state anyway
       setAuth({
         user: null,

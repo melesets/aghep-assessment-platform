@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
-import { Upload, Edit, FileText, Settings, Plus, Cog } from 'lucide-react';
+import { Upload, Edit, FileText, Settings, Plus, Cog, Users, Activity } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface DashboardStats {
@@ -79,6 +79,20 @@ export const AdminDashboard: React.FC = () => {
 
   const adminFeatures = [
     {
+      title: 'User Management',
+      description: 'Create and manage user accounts',
+      icon: Users,
+      path: '/admin/users',
+      color: 'bg-red-500'
+    },
+    {
+      title: 'Activity Logs',
+      description: 'Monitor system activity and user actions',
+      icon: Activity,
+      path: '/admin/logs',
+      color: 'bg-yellow-500'
+    },
+    {
       title: 'Upload Questions',
       description: 'Upload exam questions via CSV file',
       icon: Upload,
@@ -128,7 +142,7 @@ export const AdminDashboard: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
         <p className="text-gray-600">
           Manage exams, questions, certificates, and system settings
-          <span className="ml-2 text-green-600 font-medium">🟢 Real Database Stats</span>
+
         </p>
       </div>
 
@@ -157,7 +171,7 @@ export const AdminDashboard: React.FC = () => {
         })}
       </div>
 
-      {/* Real Database Stats */}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8">
         <Card>
           <CardContent className="p-4 text-center">

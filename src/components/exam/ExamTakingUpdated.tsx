@@ -122,7 +122,7 @@ interface ExamTakingProps {
   userInfo?: UserInfo;
 }
 
-export const ExamTaking: React.FC<ExamTakingProps> = ({ userInfo }) => {
+export const ExamTakingUpdated: React.FC<ExamTakingProps> = ({ userInfo }) => {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
   const [examData, setExamData] = useState<ExamData | null>(null);
@@ -410,4 +410,4 @@ export const ExamTaking: React.FC<ExamTakingProps> = ({ userInfo }) => {
   );
 };
 
-export default ExamTaking;
+export default ExamTakingUpdated;

@@ -35,7 +35,7 @@ export const AssessmentRecords: React.FC = () => {
 
   const loadAssessmentRecords = async () => {
     try {
-      console.log('🔍 Loading assessment records from database...');
+
       
       // Get exam attempts with related data
       const { data: attempts, error } = await supabase
@@ -83,7 +83,7 @@ export const AssessmentRecords: React.FC = () => {
           attempts: attempt.attempt_number || 1
         }));
 
-        console.log('✅ Loaded assessment records from database:', formattedRecords.length);
+
         setRecords(formattedRecords);
       } else {
         console.log('📝 No assessment records found in database');
@@ -176,7 +176,7 @@ export const AssessmentRecords: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading assessment records from database...</p>
+
         </div>
       </div>
     );
@@ -189,7 +189,7 @@ export const AssessmentRecords: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Assessment Records</h1>
           <p className="text-gray-600">
             Track and analyze student assessment performance
-            <span className="ml-2 text-green-600 font-medium">🟢 Real Database Data</span>
+
           </p>
         </div>
         <div className="flex gap-3">
@@ -295,7 +295,7 @@ export const AssessmentRecords: React.FC = () => {
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
             Assessment Records ({filteredRecords.length})
-            <span className="text-sm font-normal text-green-600">📊 From Database</span>
+
           </CardTitle>
         </CardHeader>
         <CardContent>

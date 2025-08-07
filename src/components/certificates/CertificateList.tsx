@@ -203,7 +203,6 @@ export const CertificateList: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">My Certificates</h1>
           <p className="text-gray-600">
             {certificates.length} certificate{certificates.length !== 1 ? 's' : ''} earned • {totalCEUs} total CEUs
-            <span className="ml-2 text-green-600 font-medium">🟢 Real Database Data</span>
           </p>
         </div>
         <div className="flex items-center space-x-2">

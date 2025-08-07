@@ -2,7 +2,8 @@ import React, { useState, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Save, Eye, Download, Palette, Type, Image, Upload, X, Sparkles, QrCode, Stamp, Award, AlertCircle } from 'lucide-react';
+import { Save, Eye, Download, Palette, Type, Image, Upload, X, Sparkles, QrCode, Stamp, Award, AlertCircle, Settings } from 'lucide-react';
+import { ModernCertificateDesigner } from './ModernCertificateDesigner';
 
 interface CertificateTemplate {
   id: string;
@@ -435,6 +436,44 @@ export const getGradeStatus = (score: number, template: CertificateTemplate) => 
 };
 
 export const CertificateSettings: React.FC = () => {
+  const [designMode, setDesignMode] = useState<'simple' | 'advanced'>('advanced');
+
+  if (designMode === 'advanced') {
+    return <ModernCertificateDesigner />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Certificate Settings</h1>
+        <p className="text-gray-600">Choose your certificate design experience</p>
+        
+        <div className="flex justify-center gap-4 mt-6">
+          <Button
+            onClick={() => setDesignMode('simple')}
+            variant={designMode === 'simple' ? 'default' : 'outline'}
+            className="flex items-center gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            Simple Settings
+          </Button>
+          <Button
+            onClick={() => setDesignMode('advanced')}
+            variant={designMode === 'advanced' ? 'default' : 'outline'}
+            className="flex items-center gap-2"
+          >
+            <Sparkles className="h-4 w-4" />
+            Advanced Designer
+          </Button>
+        </div>
+      </div>
+
+      <SimpleCertificateSettings />
+    </div>
+  );
+};
+
+const SimpleCertificateSettings: React.FC = () => {
   const [template, setTemplate] = useState<CertificateTemplate>(defaultTemplate);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const stampInputRef = useRef<HTMLInputElement>(null);
